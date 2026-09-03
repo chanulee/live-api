@@ -6,7 +6,7 @@
 ## 교육목표
 - Raspberry Pi 4B와 친해지기 / 피지컬 컴퓨팅에 대한 기본적인 이해
 - gemini live api 사용 익히기
-- 음성 인터랙션에서의 persona (혹은 Model Design)의 감성적/기술적 요소들을 이해하기
+- 음성 인터랙션 디자인의 감성적/기술적 요소들을 이해하기
 - 음성 인터랙션의 요소들을 이해하기 (AEC, Earcon, delay, VAD, Endpointing, WWD 등)
 
 ## 주차별 진행
