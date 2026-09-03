@@ -49,4 +49,7 @@
 
 ### 2주차 예고 - Raspberry Pi 준비
 - 아마 RPI가 이 때 배송이 올 예정이라, 셋업을 해볼 예정
+- https://www.raspberrypi.com/software/
+- https://www.youtube.com/watch?v=MHShfgqrUWs
+- microSD 어댑터가 있는 사람은 지참
 - 각자 컴퓨터실에서 Raspberry Pi 운영체제(OS) 설치 및 기기 세팅을 진행할 예정입니다.
