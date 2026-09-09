@@ -3,20 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Youngchae's Personal Workspace & Portfolio Page">
-    <title>Youngchae | Web Workspace</title>
+    <meta name="description" content="Youngchae's Gemini Live Voice Agent Workspace">
+    <title>Youngchae | Voice Live Agent</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0f172a;
-            --bg-card: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.1);
+            --bg-primary: #090d16;
+            --bg-card: rgba(22, 30, 46, 0.75);
+            --bg-card-sub: rgba(15, 23, 42, 0.6);
+            --border-color: rgba(255, 255, 255, 0.12);
             --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
+            --status-disconnected: #ef4444;
+            --status-connecting: #f59e0b;
+            --status-live: #10b981;
         }
 
         * {
@@ -33,54 +37,47 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
+            padding: 2rem 1rem;
             overflow-x: hidden;
             position: relative;
         }
 
-        /* Background glow blobs */
+        /* Ambient Glow Blobs */
         .glow-blob {
-            position: absolute;
-            width: 350px;
-            height: 350px;
+            position: fixed;
+            width: 450px;
+            height: 450px;
             background: var(--accent-gradient);
-            filter: blur(120px);
-            opacity: 0.25;
+            filter: blur(140px);
+            opacity: 0.2;
             border-radius: 50%;
+            pointer-events: none;
             z-index: 0;
-            animation: pulse 8s ease-in-out infinite alternate;
+            animation: pulse 10s ease-in-out infinite alternate;
         }
 
-        .glow-blob.top-left {
-            top: -100px;
-            left: -100px;
-        }
-
-        .glow-blob.bottom-right {
-            bottom: -100px;
-            right: -100px;
-            animation-delay: -4s;
-        }
+        .glow-blob.top-left { top: -150px; left: -150px; }
+        .glow-blob.bottom-right { bottom: -150px; right: -150px; animation-delay: -5s; }
 
         @keyframes pulse {
             0% { transform: scale(1) translate(0, 0); }
-            100% { transform: scale(1.2) translate(30px, 30px); }
+            100% { transform: scale(1.25) translate(40px, 40px); }
         }
 
-        .container {
+        .app-container {
             position: relative;
             z-index: 1;
-            width: 90%;
-            max-width: 800px;
-            padding: 2.5rem;
-            background: var(--bg-card);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        header {
             text-align: center;
-            transition: transform 0.3s ease;
+            margin-bottom: 0.5rem;
         }
 
         .gradient-text {
@@ -91,66 +88,224 @@
         }
 
         h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
+            font-size: 2.5rem;
             letter-spacing: -0.02em;
+            margin-bottom: 0.5rem;
         }
 
         p.subtitle {
-            font-size: 1.15rem;
+            font-size: 1rem;
             color: var(--text-muted);
-            margin-bottom: 2rem;
-            line-height: 1.6;
         }
 
-        .badge-container {
-            display: flex;
-            justify-content: center;
-            gap: 0.75rem;
-            flex-wrap: wrap;
-            margin-bottom: 2.5rem;
-        }
-
-        .badge {
-            padding: 0.5rem 1rem;
-            background: rgba(255, 255, 255, 0.05);
+        /* Glass Card */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border-color);
-            border-radius: 50px;
-            font-size: 0.875rem;
+            border-radius: 20px;
+            padding: 1.75rem;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Configuration Grid */
+        .config-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .config-grid { grid-template-columns: 1fr; }
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        input[type="text"], input[type="password"], select, textarea {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--bg-card-sub);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
             color: var(--text-main);
-            transition: all 0.3s ease;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.25 ease;
         }
 
-        .badge:hover {
-            background: rgba(255, 255, 255, 0.15);
-            border-color: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
+        input:focus, select:focus, textarea:focus {
+            border-color: #818cf8;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
         }
 
-        .cta-button {
-            display: inline-block;
-            padding: 0.9rem 2rem;
+        textarea {
+            resize: vertical;
+            min-height: 70px;
+        }
+
+        /* Status & Live Control Section */
+        .live-status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card-sub);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1rem 1.5rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: var(--status-disconnected);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .status-dot.connecting {
+            background-color: var(--status-connecting);
+            box-shadow: 0 0 12px var(--status-connecting);
+            animation: blink 1s infinite alternate;
+        }
+
+        .status-dot.live {
+            background-color: var(--status-live);
+            box-shadow: 0 0 14px var(--status-live);
+            animation: pulse-dot 1.5s infinite alternate;
+        }
+
+        @keyframes blink { 0% { opacity: 0.3; } 100% { opacity: 1; } }
+        @keyframes pulse-dot { 0% { transform: scale(1); } 100% { transform: scale(1.3); } }
+
+        /* Voice Visualizer Animation */
+        .visualizer-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 40px;
+            margin: 1.5rem 0;
+        }
+
+        .bar {
+            width: 6px;
+            height: 8px;
+            background: var(--accent-gradient);
+            border-radius: 10px;
+            transition: height 0.1s ease;
+        }
+
+        .visualizer-container.active .bar {
+            animation: wave 1.2s ease-in-out infinite alternate;
+        }
+
+        .visualizer-container.active .bar:nth-child(1) { animation-delay: 0.1s; }
+        .visualizer-container.active .bar:nth-child(2) { animation-delay: 0.3s; }
+        .visualizer-container.active .bar:nth-child(3) { animation-delay: 0.2s; }
+        .visualizer-container.active .bar:nth-child(4) { animation-delay: 0.5s; }
+        .visualizer-container.active .bar:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes wave {
+            0% { height: 8px; }
+            100% { height: 36px; }
+        }
+
+        /* Buttons */
+        .btn-primary {
+            padding: 0.85rem 2rem;
             background: var(--accent-gradient);
             color: #ffffff;
-            font-weight: 600;
+            font-weight: 700;
             font-size: 1rem;
-            text-decoration: none;
-            border-radius: 14px;
-            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
-            transition: all 0.3s ease;
-            cursor: pointer;
+            border-radius: 12px;
             border: none;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+            transition: all 0.25s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .cta-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.6);
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.55);
         }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35);
+        }
+
+        .btn-danger:hover {
+            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.55);
+        }
+
+        /* Logs & Transcript Box */
+        .log-box {
+            background: var(--bg-card-sub);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 1rem;
+            height: 220px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .log-entry {
+            color: var(--text-muted);
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .log-entry.system { color: #818cf8; }
+        .log-entry.ai { color: #34d399; font-weight: 600; }
+        .log-entry.interrupted { color: #f43f5e; font-weight: bold; }
+        .log-entry.error { color: #ef4444; }
 
         footer {
-            margin-top: 2rem;
+            text-align: center;
             font-size: 0.85rem;
             color: var(--text-muted);
+            margin-top: 1rem;
         }
     </style>
 </head>
@@ -159,28 +314,451 @@
     <div class="glow-blob top-left"></div>
     <div class="glow-blob bottom-right"></div>
 
-    <main class="container">
-        <h1>Welcome to <span class="gradient-text">Youngchae's World</span></h1>
-        <p class="subtitle">
-            로컬 환경에 성공적으로 생성된 HTML 메인 페이지입니다.<br>
-            세련되고 현대적인 웹 애플리케이션 스타일에 맞춰 커스터마이징해 보세요.
-        </p>
+    <div class="app-container">
+        <header>
+            <h1>Youngchae's <span class="gradient-text">Gemini Live Voice Agent</span></h1>
+            <p class="subtitle">Mac 마이크 & 스피커로 상호작용하는 대화형 멀티모달 오디오 세션</p>
+        </header>
 
-        <div class="badge-container">
-            <span class="badge">🚀 HTML5 & CSS3</span>
-            <span class="badge">✨ Dark Mode UI</span>
-            <span class="badge">⚡ Dynamic Gradient</span>
-            <span class="badge">📱 Responsive</span>
+        <!-- API Key & Voice Config Card -->
+        <div class="card">
+            <div class="config-grid">
+                <div class="form-group full-width">
+                    <label for="apiKey">Google AI Studio API Key</label>
+                    <input type="password" id="apiKey" placeholder="AIzaSy... (API 키를 입력하세요. 브라우저 localStorage에 안전하게 보관됩니다)" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label for="modelSelect">Gemini Model</label>
+                    <select id="modelSelect">
+                        <option value="models/gemini-2.0-flash-exp" selected>gemini-2.0-flash-exp</option>
+                        <option value="models/gemini-2.0-flash-live-preview">gemini-2.0-flash-live-preview</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="voiceSelect">Voice Name</label>
+                    <select id="voiceSelect">
+                        <option value="Puck" selected>Puck (Bright & Energetic)</option>
+                        <option value="Charon">Charon (Deep & Calm)</option>
+                        <option value="Kore">Kore (Warm & Friendly)</option>
+                        <option value="Fenrir">Fenrir (Confident)</option>
+                        <option value="Aoede">Aoede (Expressive)</option>
+                    </select>
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="systemInstruction">System Instruction (페르소나 설정)</label>
+                    <textarea id="systemInstruction" placeholder="예: 당신은 영채의 다정한 AI 조수입니다. 친근하고 자상한 말투로 짧게 대답해주세요.">당신은 영채의 똑똑하고 친절한 AI 음성 조수입니다. 사용자가 말하면 바로 경청하고 한국어로 친근하게 응답해주세요.</textarea>
+                </div>
+            </div>
         </div>
 
-        <button class="cta-button" onclick="alert('Youngchae의 Workspace 페이지에 오신 것을 환영합니다!')">
-            시작하기
-        </button>
-    </main>
+        <!-- Live Control & Audio State -->
+        <div class="card">
+            <div class="live-status-bar">
+                <div class="status-badge">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Disconnected</span>
+                </div>
 
-    <footer>
-        &copy; 2026 Youngchae Workspace. All rights reserved.
-    </footer>
+                <button id="toggleSessionBtn" class="btn-primary" onclick="toggleSession()">
+                    <span id="btnIcon">🎙️</span> <span id="btnText">Live 세션 시작</span>
+                </button>
+            </div>
 
+            <!-- Voice Waveform Animation -->
+            <div class="visualizer-container" id="visualizer">
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+                <div class="bar"></div>
+            </div>
+        </div>
+
+        <!-- Session Logs / Transcript Card -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <label>Realtime Session Logs & Transcript</label>
+                <button onclick="clearLogs()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.8rem;">로그 지우기</button>
+            </div>
+            <div class="log-box" id="logBox">
+                <div class="log-entry system">[SYSTEM] Gemini Live Voice Agent가 준비되었습니다. API 키 입력 후 "Live 세션 시작" 버튼을 누르세요.</div>
+            </div>
+        </div>
+
+        <footer>
+            &copy; 2026 Youngchae Live Agent | Built with Gemini Live API (WebSocket & AudioWorklet/PCM)
+        </footer>
+    </div>
+
+    <!-- Live WebSocket & Web Audio API Script -->
+    <script>
+        // State management
+        let isConnected = false;
+        let ws = null;
+        let micAudioCtx = null;
+        let scriptProcessor = null;
+        let mediaStream = null;
+        let outputAudioCtx = null;
+        let nextStartTime = 0;
+        let activeSources = [];
+
+        // Load saved API key on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem('youngchae_gemini_api_key');
+            if (savedKey) {
+                document.getElementById('apiKey').value = savedKey;
+            }
+
+            document.getElementById('apiKey').addEventListener('input', (e) => {
+                localStorage.setItem('youngchae_gemini_api_key', e.target.value.trim());
+            });
+        });
+
+        function log(message, type = 'system') {
+            const logBox = document.getElementById('logBox');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logBox.appendChild(entry);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logBox').innerHTML = '';
+        }
+
+        function setStatus(status, text) {
+            const dot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+            const visualizer = document.getElementById('visualizer');
+
+            dot.className = 'status-dot ' + status;
+            statusText.textContent = text;
+
+            if (status === 'live') {
+                visualizer.classList.add('active');
+            } else {
+                visualizer.classList.remove('active');
+            }
+        }
+
+        async function toggleSession() {
+            if (isConnected) {
+                stopSession();
+            } else {
+                startSession();
+            }
+        }
+
+        async function startSession() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                alert('Google AI Studio API Key를 입력하세요!');
+                return;
+            }
+
+            const model = document.getElementById('modelSelect').value;
+            const voice = document.getElementById('voiceSelect').value;
+            const systemInst = document.getElementById('systemInstruction').value;
+
+            const btn = document.getElementById('toggleSessionBtn');
+            btn.disabled = true;
+            setStatus('connecting', 'Connecting WebSocket...');
+            log('WebSocket 연결을 시도하는 중...', 'system');
+
+            const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = async () => {
+                    log('WebSocket 연결 완료! Setup 메시지를 전송합니다.', 'system');
+                    
+                    // 1. Send Setup Message
+                    const setupMsg = {
+                        setup: {
+                            model: model,
+                            generationConfig: {
+                                responseModalities: ["AUDIO"],
+                                speechConfig: {
+                                    voiceConfig: {
+                                        prebuiltVoiceConfig: {
+                                            voiceName: voice
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+
+                    if (systemInst.trim()) {
+                        setupMsg.setup.systemInstruction = {
+                            parts: [{ text: systemInst.trim() }]
+                        };
+                    }
+
+                    ws.send(JSON.stringify(setupMsg));
+
+                    // 2. Initialize Microphone & Audio output
+                    initOutputAudioContext();
+                    await startMicrophone();
+
+                    isConnected = true;
+                    btn.disabled = false;
+                    btn.className = 'btn-primary btn-danger';
+                    document.getElementById('btnIcon').textContent = '⏹️';
+                    document.getElementById('btnText').textContent = '세션 종료';
+                    setStatus('live', 'Live Session Active');
+                    log('🎙️ Live 세션이 활성화되었습니다! 마이크로 말해보세요.', 'system');
+                };
+
+                ws.onmessage = (event) => {
+                    handleServerMessage(event.data);
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket Error:', error);
+                    log('WebSocket 오류가 발생했습니다.', 'error');
+                    stopSession();
+                };
+
+                ws.onclose = (event) => {
+                    log(`WebSocket 연결이 종료되었습니다. (Code: ${event.code})`, 'system');
+                    stopSession();
+                };
+
+            } catch (err) {
+                console.error(err);
+                log('세션 시작 중 오류 발생: ' + err.message, 'error');
+                stopSession();
+            }
+        }
+
+        function stopSession() {
+            isConnected = false;
+
+            // Stop Microphone
+            if (scriptProcessor) {
+                scriptProcessor.disconnect();
+                scriptProcessor = null;
+            }
+            if (mediaStream) {
+                mediaStream.getTracks().forEach(track => track.stop());
+                mediaStream = null;
+            }
+            if (micAudioCtx) {
+                micAudioCtx.close();
+                micAudioCtx = null;
+            }
+
+            // Stop Output Audio & Queue
+            stopAllAudio();
+
+            // Close WebSocket
+            if (ws) {
+                ws.onopen = null;
+                ws.onmessage = null;
+                ws.onerror = null;
+                ws.onclose = null;
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.close();
+                }
+                ws = null;
+            }
+
+            // UI Reset
+            const btn = document.getElementById('toggleSessionBtn');
+            btn.disabled = false;
+            btn.className = 'btn-primary';
+            document.getElementById('btnIcon').textContent = '🎙️';
+            document.getElementById('btnText').textContent = 'Live 세션 시작';
+            setStatus('', 'Disconnected');
+            log('세션이 완전히 정지되었습니다.', 'system');
+        }
+
+        /* ----------------------------------------------------
+           Microphone Audio Capture (PCM 16kHz Mono Int16)
+        ---------------------------------------------------- */
+        async function startMicrophone() {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    channelCount: 1
+                }
+            });
+
+            micAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const inputSampleRate = micAudioCtx.sampleRate;
+            const source = micAudioCtx.createMediaStreamSource(mediaStream);
+
+            // 4096 buffer size (~85ms chunks)
+            scriptProcessor = micAudioCtx.createScriptProcessor(4096, 1, 1);
+
+            scriptProcessor.onaudioprocess = (e) => {
+                if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+                const float32Input = e.inputBuffer.getChannelData(0);
+                const pcm16IntData = resampleAndConvertToPCM16(float32Input, inputSampleRate, 16000);
+
+                if (pcm16IntData && pcm16IntData.length > 0) {
+                    const base64Audio = base64EncodeAudio(pcm16IntData);
+                    ws.send(JSON.stringify({
+                        realtimeInput: {
+                            mediaChunks: [
+                                {
+                                    mimeType: "audio/pcm;rate=16000",
+                                    data: base64Audio
+                                }
+                            ]
+                        }
+                    }));
+                }
+            };
+
+            source.connect(scriptProcessor);
+            scriptProcessor.connect(micAudioCtx.destination);
+        }
+
+        function resampleAndConvertToPCM16(inputData, inputSampleRate, outputSampleRate) {
+            let samples = inputData;
+
+            // Simple Linear Resampling if input rate != 16000
+            if (inputSampleRate !== outputSampleRate) {
+                const ratio = inputSampleRate / outputSampleRate;
+                const newLength = Math.floor(inputData.length / ratio);
+                samples = new Float32Array(newLength);
+                for (let i = 0; i < newLength; i++) {
+                    const originIndex = i * ratio;
+                    const idx0 = Math.floor(originIndex);
+                    const idx1 = Math.min(idx0 + 1, inputData.length - 1);
+                    const frac = originIndex - idx0;
+                    samples[i] = inputData[idx0] * (1 - frac) + inputData[idx1] * frac;
+                }
+            }
+
+            const pcm16 = new Int16Array(samples.length);
+            for (let i = 0; i < samples.length; i++) {
+                let s = Math.max(-1, Math.min(1, samples[i]));
+                pcm16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+            }
+            return pcm16;
+        }
+
+        function base64EncodeAudio(int16Array) {
+            let binary = '';
+            const bytes = new Uint8Array(int16Array.buffer, int16Array.byteOffset, int16Array.byteLength);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary);
+        }
+
+        /* ----------------------------------------------------
+           Gemini Server Response & Audio Playback (24kHz PCM)
+        ---------------------------------------------------- */
+        function initOutputAudioContext() {
+            if (!outputAudioCtx || outputAudioCtx.state === 'closed') {
+                outputAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+            }
+            if (outputAudioCtx.state === 'suspended') {
+                outputAudioCtx.resume();
+            }
+            nextStartTime = outputAudioCtx.currentTime;
+        }
+
+        function handleServerMessage(jsonText) {
+            let msg;
+            try {
+                msg = JSON.parse(jsonText);
+            } catch (e) {
+                console.error('JSON Parse Error', e);
+                return;
+            }
+
+            if (msg.serverContent) {
+                const { modelTurn, interrupted, turnComplete } = msg.serverContent;
+
+                // ⚡ Interruption Handling (Buffer Flush)
+                if (interrupted) {
+                    log('⚡ 사용자가 끼어들었습니다. 오디오 재생 큐를 비웁니다! (Buffer Flush)', 'interrupted');
+                    stopAllAudio();
+                    return;
+                }
+
+                if (modelTurn && modelTurn.parts) {
+                    for (const part of modelTurn.parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            const base64Data = part.inlineData.data;
+                            const float32Pcm = base64ToFloat32Array(base64Data);
+                            playAudioChunk(float32Pcm, 24000);
+                        }
+                        if (part.text) {
+                            log(`Gemini: ${part.text}`, 'ai');
+                        }
+                    }
+                }
+
+                if (turnComplete) {
+                    log('턴 완료 (Turn Complete)', 'system');
+                }
+            }
+        }
+
+        function base64ToFloat32Array(base64Str) {
+            const binary = atob(base64Str);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            const int16Array = new Int16Array(bytes.buffer);
+            const float32Array = new Float32Array(int16Array.length);
+            for (let i = 0; i < int16Array.length; i++) {
+                float32Array[i] = int16Array[i] / 32768.0;
+            }
+            return float32Array;
+        }
+
+        function playAudioChunk(float32Array, sampleRate = 24000) {
+            initOutputAudioContext();
+
+            const audioBuffer = outputAudioCtx.createBuffer(1, float32Array.length, sampleRate);
+            audioBuffer.getChannelData(0).set(float32Array);
+
+            const source = outputAudioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(outputAudioCtx.destination);
+
+            const currentTime = outputAudioCtx.currentTime;
+            if (nextStartTime < currentTime) {
+                nextStartTime = currentTime + 0.03; // tiny buffer smoothing
+            }
+
+            source.start(nextStartTime);
+            nextStartTime += audioBuffer.duration;
+
+            activeSources.push(source);
+            source.onended = () => {
+                activeSources = activeSources.filter(s => s !== source);
+            };
+        }
+
+        function stopAllAudio() {
+            activeSources.forEach(source => {
+                try {
+                    source.stop();
+                } catch (e) {}
+            });
+            activeSources = [];
+            if (outputAudioCtx) {
+                nextStartTime = outputAudioCtx.currentTime;
+            }
+        }
+    </script>
 </body>
 </html>
