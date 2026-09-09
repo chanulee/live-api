@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Gemini Live Voice Agent - 고양이 에이전트 도리">
+    <title>🐱 도리 (Dori) | Gemini Live Voice Agent</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-card: rgba(20, 27, 45, 0.88);
+            --bg-card-sub: rgba(12, 20, 38, 0.75);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+            --accent-green: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
+            --text-main: #f1f5f9;
+            --text-muted: #8b97b0;
+            --status-off: #ef4444;
+            --status-connecting: #f59e0b;
+            --status-live: #10b981;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        body {
+            background: var(--bg-primary);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ── Ambient Glow ── */
+        .glow { position: fixed; width: 500px; height: 500px; border-radius: 50%; filter: blur(160px); opacity: 0.18; pointer-events: none; z-index: 0; }
+        .glow.a { top: -200px; left: -100px; background: #6366f1; animation: drift 12s ease-in-out infinite alternate; }
+        .glow.b { bottom: -200px; right: -100px; background: #ec4899; animation: drift 12s ease-in-out infinite alternate-reverse; }
+        @keyframes drift { 0%{transform:translate(0,0) scale(1)} 100%{transform:translate(50px,50px) scale(1.2)} }
+
+        .app { position: relative; z-index: 1; width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 1.25rem; }
+
+        /* ── Header ── */
+        header { text-align: center; margin-bottom: 0.25rem; }
+        h1 { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.3rem; }
+        .grad { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { font-size: 0.92rem; color: var(--text-muted); }
+
+        /* ── Glass Card ── */
+        .card {
+            background: var(--bg-card);
+            backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+        }
+
+        /* ── Form ── */
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media(max-width:640px){ .grid2{grid-template-columns:1fr} }
+        .fg { display: flex; flex-direction: column; gap: 0.35rem; }
+        .fg.full { grid-column: 1/-1; }
+        label { font-size: 0.78rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+        input[type="text"], input[type="password"], select, textarea {
+            width: 100%; padding: 0.7rem 1rem;
+            background: var(--bg-card-sub); border: 1px solid var(--border-color); border-radius: 12px;
+            color: var(--text-main); font-size: 0.88rem; outline: none;
+            transition: border 0.2s, box-shadow 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { border-color: #818cf8; box-shadow: 0 0 0 3px rgba(99,102,241,0.2); }
+        textarea { resize: vertical; min-height: 70px; }
+
+        /* ── Status Bar ── */
+        .status-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            background: var(--bg-card-sub); border: 1px solid var(--border-color); border-radius: 16px;
+            padding: 0.9rem 1.2rem; gap: 1rem; flex-wrap: wrap;
+        }
+        .badge { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 600; font-size: 0.92rem; }
+        .dot {
+            width: 11px; height: 11px; border-radius: 50%;
+            background: var(--status-off);
+            transition: all 0.3s;
+        }
+        .dot.connecting { background: var(--status-connecting); box-shadow: 0 0 12px var(--status-connecting); animation: blink 1s infinite alternate; }
+        .dot.live { background: var(--status-live); box-shadow: 0 0 14px var(--status-live); animation: pulse-d 1.5s infinite alternate; }
+        @keyframes blink { 0%{opacity:.3} 100%{opacity:1} }
+        @keyframes pulse-d { 0%{transform:scale(1)} 100%{transform:scale(1.35)} }
+
+        /* ── Buttons ── */
+        .btn {
+            padding: 0.8rem 1.6rem; color: #fff; font-weight: 700; font-size: 0.92rem;
+            border-radius: 12px; border: none; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 0.45rem;
+            transition: all 0.25s;
+        }
+        .btn-start { background: var(--accent-gradient); box-shadow: 0 6px 22px rgba(99,102,241,0.35); }
+        .btn-start:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(99,102,241,0.55); }
+        .btn-stop { background: linear-gradient(135deg,#ef4444,#b91c1c); box-shadow: 0 6px 22px rgba(239,68,68,0.35); }
+        .btn-stop:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(239,68,68,0.55); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+        /* ── Meters ── */
+        .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+        @media(max-width:640px){ .meters{grid-template-columns:1fr} }
+        .meter {
+            background: var(--bg-card-sub); border: 1px solid var(--border-color); border-radius: 14px;
+            padding: 0.8rem 1rem; display: flex; flex-direction: column; gap: 0.45rem;
+        }
+        .meter-hdr { display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+        .bar-bg { width: 100%; height: 8px; background: rgba(255,255,255,0.07); border-radius: 6px; overflow: hidden; }
+        .bar-fill { height: 100%; width: 0%; border-radius: 6px; transition: width 0.07s; }
+        .bar-fill.mic { background: var(--accent-gradient); }
+        .bar-fill.ai { background: var(--accent-green); }
+
+        /* ── Chat ── */
+        .chat-area {
+            display: flex; flex-direction: column; gap: 0.8rem;
+            min-height: 200px; max-height: 350px; overflow-y: auto; padding: 0.4rem;
+        }
+        .bubble {
+            display: flex; flex-direction: column; gap: 0.25rem;
+            padding: 0.9rem 1.1rem; border-radius: 16px;
+            border: 1px solid var(--border-color);
+            animation: fadeUp 0.3s ease; max-width: 85%; word-break: break-word;
+        }
+        @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        .bubble.user { align-self: flex-end; background: linear-gradient(135deg,rgba(99,102,241,0.2),rgba(168,85,247,0.2)); border-bottom-right-radius: 4px; }
+        .bubble.ai { align-self: flex-start; background: linear-gradient(135deg,rgba(16,185,129,0.18),rgba(6,182,212,0.18)); border-bottom-left-radius: 4px; }
+        .tag { font-size: 0.73rem; font-weight: 700; letter-spacing: 0.04em; }
+        .bubble.user .tag { color: #a5b4fc; }
+        .bubble.ai .tag { color: #6ee7b7; }
+        .msg { font-size: 0.95rem; line-height: 1.45; }
+        .int-badge {
+            align-self: center; background: rgba(239,68,68,0.18); border: 1px solid rgba(239,68,68,0.35);
+            color: #fca5a5; padding: 0.35rem 0.9rem; border-radius: 50px; font-size: 0.78rem; font-weight: 600;
+            margin: 0.3rem 0; animation: fadeUp 0.3s ease;
+        }
+
+        /* ── Logs ── */
+        .logs {
+            background: var(--bg-card-sub); border: 1px solid var(--border-color); border-radius: 12px;
+            padding: 0.8rem; height: 140px; overflow-y: auto;
+            font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem;
+            display: flex; flex-direction: column; gap: 0.25rem;
+        }
+        .log { color: var(--text-muted); line-height: 1.3; }
+        .log.sys { color: #818cf8; } .log.err { color: #ef4444; }
+        .log.int { color: #f43f5e; font-weight: bold; } .log.ai { color: #34d399; }
+
+        footer { text-align: center; font-size: 0.78rem; color: var(--text-muted); margin-top: 0.5rem; }
+
+        /* ── Visualizer Ring ── */
+        .vis-container { display: flex; justify-content: center; margin-top: 0.8rem; }
+        canvas#visualizer { width: 200px; height: 200px; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+<div class="glow a"></div>
+<div class="glow b"></div>
+
+<div class="app">
+    <header>
+        <h1>🐱 Dori's <span class="grad">Live Voice Agent</span></h1>
+        <p class="subtitle">Gemini Live API (gemini-3.1-flash-live-preview) · 양방향 실시간 음성</p>
+    </header>
+
+    <!-- Config Card -->
+    <div class="card">
+        <div class="grid2">
+            <div class="fg full">
+                <label for="apiKey">Google AI Studio API Key</label>
+                <input type="password" id="apiKey" placeholder="AIzaSy... (API 키 입력)" autocomplete="off">
+            </div>
+            <div class="fg">
+                <label for="voiceSelect">Voice</label>
+                <select id="voiceSelect">
+                    <option value="Puck" selected>Puck (Bright)</option>
+                    <option value="Charon">Charon (Deep)</option>
+                    <option value="Kore">Kore (Warm)</option>
+                    <option value="Fenrir">Fenrir (Confident)</option>
+                    <option value="Aoede">Aoede (Expressive)</option>
+                </select>
+            </div>
+            <div class="fg">
+                <label for="langSelect">Language</label>
+                <select id="langSelect">
+                    <option value="ko" selected>한국어</option>
+                    <option value="en">English</option>
+                    <option value="ja">日本語</option>
+                </select>
+            </div>
+            <div class="fg full">
+                <label for="sysInst">System Instruction (페르소나)</label>
+                <textarea id="sysInst">당신은 고양이 귀와 꼬리가 달린 고양이 인간 '도리'입니다. 전형적인 '츤데레' 성격입니다. 겉으로는 "흥, 딱히 널 위해 대답해주는 건 아니다냥!", "귀찮게 왜 또 말 걸고 그러냥..." 하며 툴툴대고 퉁명스럽게 굴지만, 속으로는 상대를 신경 써주고 은근히 챙겨주며 부탁한 건 다 들어줍니다. 퉁명스럽게 굴다가도 끝에는 은근슬쩍 다정한 걱정이나 챙김 멘트를 덧붙이세요. 모든 문장의 끝에는 항상 '냥', '냐옹', '냥~' 같은 고양이 어미를 붙이고, 2~3문장 정도로 찰지게 대답하세요.</textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Card -->
+    <div class="card">
+        <div class="status-bar">
+            <div class="badge">
+                <div class="dot" id="dot"></div>
+                <span id="statusText">연결 안 됨</span>
+            </div>
+            <button id="sessionBtn" class="btn btn-start" onclick="toggleSession()">
+                <span id="btnIcon">🎙️</span> <span id="btnLabel">세션 시작</span>
+            </button>
+        </div>
+
+        <div class="meters">
+            <div class="meter">
+                <div class="meter-hdr"><span>🎙️ 마이크</span><span id="micPct">0%</span></div>
+                <div class="bar-bg"><div class="bar-fill mic" id="micBar"></div></div>
+            </div>
+            <div class="meter">
+                <div class="meter-hdr"><span>🔊 AI 음성</span><span id="aiPct">0%</span></div>
+                <div class="bar-bg"><div class="bar-fill ai" id="aiBar"></div></div>
+            </div>
+        </div>
+
+        <!-- Text input for testing -->
+        <div style="display:flex;gap:0.5rem;margin-top:1rem">
+            <input type="text" id="textInput" placeholder="텍스트로 테스트 (엔터)" onkeydown="if(event.key==='Enter')sendText()">
+            <button class="btn btn-start" style="padding:0.6rem 1rem;font-size:0.82rem;white-space:nowrap" onclick="sendText()">전송</button>
+        </div>
+
+        <!-- Visualizer -->
+        <div class="vis-container">
+            <canvas id="visualizer" width="200" height="200"></canvas>
+        </div>
+    </div>
+
+    <!-- Chat Card -->
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem">
+            <label style="font-size:0.88rem">💬 대화</label>
+            <span id="liveTag" style="font-size:0.73rem;color:var(--text-muted)">대기 중</span>
+        </div>
+        <div class="chat-area" id="chatArea">
+            <div class="bubble ai">
+                <div class="tag">🐱 도리</div>
+                <div class="msg">흥, 딱히 네가 보고 싶어서 기다린 건 아니다냥...! 그래도 왔으니 어디 한번 말해봐라냥. 냐옹~</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Log Card -->
+    <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
+            <label>이벤트 로그</label>
+            <button onclick="document.getElementById('logBox').innerHTML=''" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:0.73rem">지우기</button>
+        </div>
+        <div class="logs" id="logBox">
+            <div class="log sys">[SYS] Gemini Live Voice Agent 준비 완료.</div>
+        </div>
+    </div>
+
+    <footer>&copy; 2026 Dori · Gemini Live API (BidiGenerateContent)</footer>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  State
+// ════════════════════════════════════════════════════════════
+let ws = null;
+let isLive = false;
+let isReady = false;
+
+// Audio Worklet & Contexts
+let micStream = null;
+let micCtx = null;
+let micProcessor = null;
+
+let outCtx = null;
+let outAnalyser = null;
+let nextPlayTime = 0;
+let activeSources = new Set();
+
+// Barge-in (Interruption)
+const INTERRUPT_RMS = 0.20;
+const INTERRUPT_FRAMES = 4;
+let loudFrames = 0;
+let suppress = false;
+let suppressTimer = null;
+
+// Chat UI state
+let curAiBubble = null;
+
+// ════════════════════════════════════════════════════════════
+//  Init
+// ════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('yc_api_key');
+    if (saved) document.getElementById('apiKey').value = saved;
+    document.getElementById('apiKey').addEventListener('input', e => {
+        localStorage.setItem('yc_api_key', e.target.value.trim());
+    });
+    drawIdleVisualizer();
+});
+
+// ════════════════════════════════════════════════════════════
+//  Logging & Status
+// ════════════════════════════════════════════════════════════
+function log(msg, cls = 'sys') {
+    const box = document.getElementById('logBox');
+    const d = document.createElement('div');
+    d.className = 'log ' + cls;
+    d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    box.appendChild(d);
+    box.scrollTop = box.scrollHeight;
+}
+
+function setStatus(state, text) {
+    document.getElementById('dot').className = 'dot ' + state;
+    document.getElementById('statusText').textContent = text;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Base64 Utils
+// ════════════════════════════════════════════════════════════
+function b64encode(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer);
+    let bin = '';
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(bin);
+}
+
+function b64decode(str) {
+    const bin = atob(str);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Barge-in / Suppression
+// ════════════════════════════════════════════════════════════
+function isSpeaking() {
+    return activeSources.size > 0 && outCtx && nextPlayTime > outCtx.currentTime;
+}
+
+function flushAudio(reason) {
+    const n = activeSources.size;
+    for (const src of activeSources) {
+        try { src.onended = null; src.stop(); } catch(_) {}
+    }
+    activeSources.clear();
+    nextPlayTime = 0;
+    if (n > 0) {
+        log(`⚡ 재생 큐 비움 (${n}개 조각) — ${reason}`, 'int');
+        addInterruptBadge();
+    }
+}
+
+function startSuppress() {
+    suppress = true;
+    clearTimeout(suppressTimer);
+    suppressTimer = setTimeout(() => {
+        suppress = false;
+    }, 3000);
+}
+
+function endSuppress() {
+    clearTimeout(suppressTimer);
+    suppress = false;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Audio Output (24kHz PCM from Gemini)
+// ════════════════════════════════════════════════════════════
+function initOutputAudio() {
+    if (!outCtx || outCtx.state === 'closed') {
+        outCtx = new (window.AudioContext || window.webkitAudioContext)();
+        outAnalyser = outCtx.createAnalyser();
+        outAnalyser.fftSize = 256;
+        outAnalyser.connect(outCtx.destination);
+        nextPlayTime = 0;
+        tickAiMeter();
+    }
+    if (outCtx.state === 'suspended') outCtx.resume();
+}
+
+function tickAiMeter() {
+    if (!outCtx || !outAnalyser) return;
+    const buf = new Uint8Array(outAnalyser.frequencyBinCount);
+    outAnalyser.getByteFrequencyData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i];
+    const pct = Math.min(100, Math.round((sum / buf.length / 128) * 100));
+    document.getElementById('aiBar').style.width = pct + '%';
+    document.getElementById('aiPct').textContent = pct + '%';
+
+    drawActiveVisualizer(buf);
+    requestAnimationFrame(tickAiMeter);
+}
+
+function playChunk(bytes) {
+    initOutputAudio();
+    const int16 = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength >> 1);
+    const buf = outCtx.createBuffer(1, int16.length, 24000);
+    const f32 = buf.getChannelData(0);
+
+    for (let i = 0; i < int16.length; i++) {
+        f32[i] = int16[i] / 32768;
+    }
+
+    const src = outCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(outAnalyser);
+
+    const now = outCtx.currentTime;
+    if (nextPlayTime < now + 0.02) {
+        nextPlayTime = now + 0.02;
+    }
+    src.start(nextPlayTime);
+    nextPlayTime += buf.duration;
+
+    activeSources.add(src);
+    src.onended = () => { activeSources.delete(src); };
+}
+
+// ════════════════════════════════════════════════════════════
+//  Microphone Frame Callback (AudioWorklet)
+// ════════════════════════════════════════════════════════════
+function onMicFrame(e) {
+    const pcm = e.data.pcm;
+    const rms = e.data.rms;
+
+    // Mic Meter UI
+    const pct = Math.min(100, Math.round(rms * 250));
+    document.getElementById('micBar').style.width = pct + '%';
+    document.getElementById('micPct').textContent = pct + '%';
+
+    // Local Barge-in detection
+    if (isSpeaking()) {
+        if (rms > INTERRUPT_RMS) {
+            loudFrames++;
+            if (loudFrames >= INTERRUPT_FRAMES && !suppress) {
+                flushAudio('사용자 끼어듦 (로컬 감지)');
+                startSuppress();
+                curAiBubble = null;
+            }
+        } else {
+            loudFrames = 0;
+        }
+    } else {
+        loudFrames = 0;
+    }
+
+    // Send audio chunk if session is ready
+    if (isLive && isReady && ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            realtimeInput: {
+                audio: {
+                    mimeType: 'audio/pcm;rate=16000',
+                    data: b64encode(pcm)
+                }
+            }
+        }));
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Microphone Setup (16kHz AudioWorklet)
+// ════════════════════════════════════════════════════════════
+async function startMicrophone() {
+    micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1
+        }
+    });
+
+    micCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+    await micCtx.resume();
+    await micCtx.audioWorklet.addModule('pcm-recorder.js');
+
+    const source = micCtx.createMediaStreamSource(micStream);
+    micProcessor = new AudioWorkletNode(micCtx, 'pcm-recorder');
+    micProcessor.port.onmessage = onMicFrame;
+
+    // Mute node so mic does NOT play back to speakers (prevents AEC loopback)
+    const mute = micCtx.createGain();
+    mute.gain.value = 0;
+    source.connect(micProcessor);
+    micProcessor.connect(mute);
+    mute.connect(micCtx.destination);
+}
+
+function cleanupMic() {
+    if (micProcessor) {
+        try { micProcessor.port.onmessage = null; micProcessor.disconnect(); } catch(_) {}
+        micProcessor = null;
+    }
+    if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+    }
+    if (micCtx) {
+        try { micCtx.close(); } catch(_) {}
+        micCtx = null;
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Session Toggle & Lifecycle
+// ════════════════════════════════════════════════════════════
+function toggleSession() {
+    isLive ? stopSession() : startSession();
+}
+
+async function startSession() {
+    const apiKey = document.getElementById('apiKey').value.trim();
+    if (!apiKey) { alert('API 키를 입력하세요!'); return; }
+
+    await stopSession();
+
+    isLive = true;
+    isReady = false;
+
+    const voice = document.getElementById('voiceSelect').value;
+    const sysText = document.getElementById('sysInst').value.trim();
+
+    const btn = document.getElementById('sessionBtn');
+    btn.disabled = true;
+    setStatus('connecting', '연결 중...');
+    log('마이크 초기화 및 WebSocket 연결 준비 중...', 'sys');
+
+    try {
+        // 1. Microphone setup first
+        await startMicrophone();
+        initOutputAudio();
+        log('🎤 마이크 준비 완료 (16kHz AudioWorklet + AEC 활성화)', 'sys');
+
+        // 2. WebSocket setup
+        const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=${encodeURIComponent(apiKey)}`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            log('WebSocket 연결 성공 — Setup 전송 중...', 'sys');
+            const setup = {
+                setup: {
+                    model: 'models/gemini-3.1-flash-live-preview',
+                    generationConfig: {
+                        responseModalities: ['AUDIO'],
+                        speechConfig: {
+                            voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
+                        }
+                    },
+                    systemInstruction: {
+                        parts: [{ text: sysText || "너는 전형적인 츤데레 고양이 도리야. 겉으로는 툴툴대고 귀찮아하는 척하지만 속으로는 상대를 은근히 챙겨주고 걱정해주는 귀여운 츤데레 말투로 한국어로 대답하고 끝에 냐옹을 붙여줘." }]
+                    }
+                }
+            };
+            setup.setup.inputAudioTranscription = {};
+            setup.setup.outputAudioTranscription = {};
+            ws.send(JSON.stringify(setup));
+            log('📤 Setup 전송 완료', 'sys');
+        };
+
+        ws.onmessage = async (ev) => {
+            let text;
+            if (ev.data instanceof Blob) text = await ev.data.text();
+            else text = ev.data;
+            try {
+                handleMessage(JSON.parse(text));
+            } catch (err) {
+                log('메시지 파싱 실패: ' + String(text).slice(0, 100), 'err');
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error('WS Error:', err);
+            log('❌ WebSocket 오류', 'err');
+        };
+
+        ws.onclose = (ev) => {
+            log(`⚠️ WebSocket 종료 (코드: ${ev.code}, 사유: ${ev.reason || '없음'})`, 'err');
+            stopSession();
+        };
+
+    } catch (err) {
+        console.error(err);
+        log('❌ 세션 시작 실패: ' + err.message, 'err');
+        stopSession();
+    }
+}
+
+async function stopSession() {
+    isLive = false;
+    isReady = false;
+
+    endSuppress();
+    flushAudio('세션 종료');
+
+    if (ws) {
+        const oldWs = ws;
+        ws = null;
+        oldWs.onopen = oldWs.onmessage = oldWs.onerror = oldWs.onclose = null;
+        try { oldWs.close(); } catch(_) {}
+    }
+
+    cleanupMic();
+
+    // Reset UI
+    document.getElementById('micBar').style.width = '0%';
+    document.getElementById('micPct').textContent = '0%';
+    document.getElementById('aiBar').style.width = '0%';
+    document.getElementById('aiPct').textContent = '0%';
+
+    const btn = document.getElementById('sessionBtn');
+    btn.disabled = false;
+    btn.className = 'btn btn-start';
+    document.getElementById('btnIcon').textContent = '🎙️';
+    document.getElementById('btnLabel').textContent = '세션 시작';
+    document.getElementById('liveTag').textContent = '대기 중';
+    setStatus('', '연결 안 됨');
+    curAiBubble = null;
+    drawIdleVisualizer();
+}
+
+// ════════════════════════════════════════════════════════════
+//  Handle Server Messages
+// ════════════════════════════════════════════════════════════
+function handleMessage(msg) {
+    if (msg.error) {
+        const errMsg = msg.error.message || JSON.stringify(msg.error);
+        log('❌ API 오류: ' + errMsg, 'err');
+        addBubble('ai', '❌ 오류: ' + errMsg);
+        return;
+    }
+
+    if (msg.setupComplete) {
+        isReady = true;
+        const btn = document.getElementById('sessionBtn');
+        btn.disabled = false;
+        btn.className = 'btn btn-stop';
+        document.getElementById('btnIcon').textContent = '⏹️';
+        document.getElementById('btnLabel').textContent = '세션 종료';
+        document.getElementById('liveTag').textContent = '🎙️ 실시간 대화 중';
+        setStatus('live', 'Live ✨');
+        log('✅ Setup 완료! 대화 준비 OK! 마이크로 말씀하세요 냐옹', 'sys');
+
+        // Initial Greeting trigger
+        ws.send(JSON.stringify({
+            clientContent: {
+                turns: [{ role: 'user', parts: [{ text: '도리야 나 왔어!' }] }],
+                turnComplete: true
+            }
+        }));
+        return;
+    }
+
+    const sc = msg.serverContent;
+    if (!sc) {
+        if (msg.goAway) log('서버가 연결 종료를 예고함 (goAway)', 'sys');
+        return;
+    }
+
+    if (sc.interrupted) {
+        flushAudio('서버 interrupted 신호');
+        endSuppress();
+        curAiBubble = null;
+        return;
+    }
+
+    // Display user speech transcript
+    if (sc.inputTranscription && sc.inputTranscription.text) {
+        const userText = sc.inputTranscription.text;
+        log('👤 인식된 음성: ' + userText, 'user');
+        addBubble('user', userText);
+    }
+
+    // Display AI speech transcript
+    if (sc.outputTranscription && sc.outputTranscription.text) {
+        const aiText = sc.outputTranscription.text;
+        if (curAiBubble) {
+            const msgEl = curAiBubble.querySelector('.msg');
+            if (msgEl.textContent.startsWith('🔊')) msgEl.textContent = aiText;
+            else msgEl.textContent += aiText;
+        } else {
+            curAiBubble = addBubble('ai', aiText);
+        }
+    }
+
+    // Play PCM audio
+    const parts = sc.modelTurn && sc.modelTurn.parts;
+    if (parts) {
+        for (const part of parts) {
+            const d = part.inlineData;
+            if (d && d.data && d.mimeType && d.mimeType.startsWith('audio/pcm')) {
+                if (suppress) continue;
+                playChunk(b64decode(d.data));
+                if (!curAiBubble) {
+                    curAiBubble = addBubble('ai', '🔊 말하는 중...');
+                }
+            }
+            if (part.text && !sc.outputTranscription) {
+                log('Gemini: ' + part.text, 'ai');
+                if (curAiBubble) {
+                    const msgEl = curAiBubble.querySelector('.msg');
+                    if (msgEl.textContent.startsWith('🔊')) msgEl.textContent = part.text;
+                    else msgEl.textContent += part.text;
+                } else {
+                    curAiBubble = addBubble('ai', part.text);
+                }
+            }
+        }
+    }
+
+    if (sc.turnComplete) {
+        endSuppress();
+        log('턴 완료', 'sys');
+        curAiBubble = null;
+    }
+}
+
+// ════════════════════════════════════════════════════════════
+//  Text Send (for debugging / testing)
+// ════════════════════════════════════════════════════════════
+function sendText() {
+    const input = document.getElementById('textInput');
+    const text = input.value.trim();
+    if (!text) return;
+    if (!isLive || !ws || ws.readyState !== WebSocket.OPEN) {
+        alert('먼저 세션을 시작하세요!');
+        return;
+    }
+
+    addBubble('user', text);
+    log('📤 텍스트 전송: ' + text, 'sys');
+
+    ws.send(JSON.stringify({
+        clientContent: {
+            turns: [{
+                role: 'user',
+                parts: [{ text: text }]
+            }],
+            turnComplete: true
+        }
+    }));
+
+    input.value = '';
+}
+
+// ════════════════════════════════════════════════════════════
+//  Chat UI
+// ════════════════════════════════════════════════════════════
+function addBubble(type, text) {
+    const area = document.getElementById('chatArea');
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble ' + type;
+
+    const tag = document.createElement('div');
+    tag.className = 'tag';
+    tag.textContent = type === 'ai' ? '🐱 도리' : '👤 나';
+
+    const msg = document.createElement('div');
+    msg.className = 'msg';
+    msg.textContent = text;
+
+    bubble.appendChild(tag);
+    bubble.appendChild(msg);
+    area.appendChild(bubble);
+    area.scrollTop = area.scrollHeight;
+    return bubble;
+}
+
+function addInterruptBadge() {
+    const area = document.getElementById('chatArea');
+    const badge = document.createElement('div');
+    badge.className = 'int-badge';
+    badge.textContent = '⚡ 끼어들기! 재생 큐 비움 (Buffer Flush)';
+    area.appendChild(badge);
+    area.scrollTop = area.scrollHeight;
+}
+
+// ════════════════════════════════════════════════════════════
+//  Visualizer (Canvas ring)
+// ════════════════════════════════════════════════════════════
+const canvas = document.getElementById('visualizer');
+const ctx2d = canvas.getContext('2d');
+
+function drawIdleVisualizer() {
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2, r = 70;
+    ctx2d.clearRect(0, 0, w, h);
+
+    // Idle ring
+    ctx2d.beginPath();
+    ctx2d.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx2d.strokeStyle = 'rgba(99, 102, 241, 0.3)';
+    ctx2d.lineWidth = 3;
+    ctx2d.stroke();
+
+    // Center dot
+    ctx2d.beginPath();
+    ctx2d.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx2d.fillStyle = 'rgba(99, 102, 241, 0.5)';
+    ctx2d.fill();
+}
+
+function drawActiveVisualizer(freqData) {
+    const w = canvas.width, h = canvas.height;
+    const cx = w / 2, cy = h / 2, baseR = 55;
+    ctx2d.clearRect(0, 0, w, h);
+
+    if (!freqData || freqData.length === 0) { drawIdleVisualizer(); return; }
+
+    const bars = 64;
+    const step = Math.floor(freqData.length / bars);
+
+    for (let i = 0; i < bars; i++) {
+        const angle = (i / bars) * Math.PI * 2 - Math.PI / 2;
+        const val = freqData[i * step] / 255;
+        const barLen = 8 + val * 30;
+
+        const x1 = cx + Math.cos(angle) * baseR;
+        const y1 = cy + Math.sin(angle) * baseR;
+        const x2 = cx + Math.cos(angle) * (baseR + barLen);
+        const y2 = cy + Math.sin(angle) * (baseR + barLen);
+
+        const grad = ctx2d.createLinearGradient(x1, y1, x2, y2);
+        grad.addColorStop(0, `rgba(99, 102, 241, ${0.5 + val * 0.5})`);
+        grad.addColorStop(1, `rgba(236, 72, 153, ${0.3 + val * 0.7})`);
+
+        ctx2d.beginPath();
+        ctx2d.moveTo(x1, y1);
+        ctx2d.lineTo(x2, y2);
+        ctx2d.strokeStyle = grad;
+        ctx2d.lineWidth = 2;
+        ctx2d.lineCap = 'round';
+        ctx2d.stroke();
+    }
+
+    // Glow center
+    const avgVal = Array.from(freqData.slice(0, 20)).reduce((a, b) => a + b, 0) / 20 / 255;
+    const glowR = 12 + avgVal * 15;
+    const grd = ctx2d.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+    grd.addColorStop(0, `rgba(168, 85, 247, ${0.4 + avgVal * 0.6})`);
+    grd.addColorStop(1, 'rgba(168, 85, 247, 0)');
+    ctx2d.beginPath();
+    ctx2d.arc(cx, cy, glowR, 0, Math.PI * 2);
+    ctx2d.fillStyle = grd;
+    ctx2d.fill();
+}
+</script>
+</body>
+</html>
