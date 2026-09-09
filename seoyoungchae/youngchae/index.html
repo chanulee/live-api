@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Youngchae's Gemini Live Voice Agent Workspace">
+    <meta name="description" content="Youngchae's Gemini Live Voice Agent Workspace with STT/TTS Live Display">
     <title>Youngchae | Voice Live Agent</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,10 +12,12 @@
     <style>
         :root {
             --bg-primary: #090d16;
-            --bg-card: rgba(22, 30, 46, 0.75);
-            --bg-card-sub: rgba(15, 23, 42, 0.6);
+            --bg-card: rgba(22, 30, 46, 0.8);
+            --bg-card-sub: rgba(15, 23, 42, 0.75);
             --border-color: rgba(255, 255, 255, 0.12);
             --accent-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+            --user-bubble-bg: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.25) 100%);
+            --ai-bubble-bg: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
             --status-disconnected: #ef4444;
@@ -72,12 +74,12 @@
             max-width: 900px;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            gap: 1.25rem;
         }
 
         header {
             text-align: center;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.25rem;
         }
 
         .gradient-text {
@@ -88,13 +90,13 @@
         }
 
         h1 {
-            font-size: 2.5rem;
+            font-size: 2.2rem;
             letter-spacing: -0.02em;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
         }
 
         p.subtitle {
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: var(--text-muted);
         }
 
@@ -105,7 +107,7 @@
             -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--border-color);
             border-radius: 20px;
-            padding: 1.75rem;
+            padding: 1.5rem;
             box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4);
         }
 
@@ -114,7 +116,6 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 1rem;
-            margin-top: 1rem;
         }
 
         @media (max-width: 640px) {
@@ -132,8 +133,8 @@
         }
 
         label {
-            font-size: 0.85rem;
-            font-weight: 600;
+            font-size: 0.8rem;
+            font-weight: 700;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.05em;
@@ -141,14 +142,14 @@
 
         input[type="text"], input[type="password"], select, textarea {
             width: 100%;
-            padding: 0.75rem 1rem;
+            padding: 0.7rem 1rem;
             background: var(--bg-card-sub);
             border: 1px solid var(--border-color);
             border-radius: 12px;
             color: var(--text-main);
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             outline: none;
-            transition: all 0.25 ease;
+            transition: all 0.25s ease;
         }
 
         input:focus, select:focus, textarea:focus {
@@ -158,7 +159,7 @@
 
         textarea {
             resize: vertical;
-            min-height: 70px;
+            min-height: 60px;
         }
 
         /* Status & Live Control Section */
@@ -169,7 +170,7 @@
             background: var(--bg-card-sub);
             border: 1px solid var(--border-color);
             border-radius: 16px;
-            padding: 1rem 1.5rem;
+            padding: 1rem 1.25rem;
             gap: 1rem;
             flex-wrap: wrap;
         }
@@ -205,46 +206,64 @@
         @keyframes blink { 0% { opacity: 0.3; } 100% { opacity: 1; } }
         @keyframes pulse-dot { 0% { transform: scale(1); } 100% { transform: scale(1.3); } }
 
-        /* Voice Visualizer Animation */
-        .visualizer-container {
+        /* Mic Volume & Audio Meters */
+        .meters-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        @media (max-width: 640px) {
+            .meters-container { grid-template-columns: 1fr; }
+        }
+
+        .meter-box {
+            background: var(--bg-card-sub);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 0.85rem 1rem;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            height: 40px;
-            margin: 1.5rem 0;
+            flex-direction: column;
+            gap: 0.5rem;
         }
 
-        .bar {
-            width: 6px;
-            height: 8px;
+        .meter-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
             background: var(--accent-gradient);
-            border-radius: 10px;
-            transition: height 0.1s ease;
+            border-radius: 6px;
+            transition: width 0.08s ease;
         }
 
-        .visualizer-container.active .bar {
-            animation: wave 1.2s ease-in-out infinite alternate;
-        }
-
-        .visualizer-container.active .bar:nth-child(1) { animation-delay: 0.1s; }
-        .visualizer-container.active .bar:nth-child(2) { animation-delay: 0.3s; }
-        .visualizer-container.active .bar:nth-child(3) { animation-delay: 0.2s; }
-        .visualizer-container.active .bar:nth-child(4) { animation-delay: 0.5s; }
-        .visualizer-container.active .bar:nth-child(5) { animation-delay: 0.4s; }
-
-        @keyframes wave {
-            0% { height: 8px; }
-            100% { height: 36px; }
+        .progress-bar-fill.ai {
+            background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
         }
 
         /* Buttons */
         .btn-primary {
-            padding: 0.85rem 2rem;
+            padding: 0.85rem 1.8rem;
             background: var(--accent-gradient);
             color: #ffffff;
             font-weight: 700;
-            font-size: 1rem;
+            font-size: 0.95rem;
             border-radius: 12px;
             border: none;
             cursor: pointer;
@@ -275,37 +294,107 @@
             box-shadow: 0 10px 25px rgba(239, 68, 68, 0.55);
         }
 
-        /* Logs & Transcript Box */
+        /* Live Speech Chat / Subtitles Display */
+        .speech-display-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-height: 250px;
+            max-height: 380px;
+            overflow-y: auto;
+            padding: 0.5rem;
+        }
+
+        .chat-bubble {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            animation: fadeIn 0.3s ease;
+            max-width: 85%;
+            word-break: break-word;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chat-bubble.user {
+            align-self: flex-end;
+            background: var(--user-bubble-bg);
+            border-bottom-right-radius: 4px;
+        }
+
+        .chat-bubble.ai {
+            align-self: flex-start;
+            background: var(--ai-bubble-bg);
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-bubble .speaker-tag {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .chat-bubble.user .speaker-tag { color: #a5b4fc; }
+        .chat-bubble.ai .speaker-tag { color: #6ee7b7; }
+
+        .chat-bubble .message-text {
+            font-size: 1rem;
+            line-height: 1.5;
+            color: var(--text-main);
+        }
+
+        .interrupted-badge {
+            align-self: center;
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            padding: 0.4rem 1rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin: 0.5rem 0;
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* Logs & System Output */
         .log-box {
             background: var(--bg-card-sub);
             border: 1px solid var(--border-color);
-            border-radius: 14px;
-            padding: 1rem;
-            height: 220px;
+            border-radius: 12px;
+            padding: 0.85rem;
+            height: 140px;
             overflow-y: auto;
             font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             display: flex;
             flex-direction: column;
-            gap: 0.4rem;
+            gap: 0.3rem;
         }
 
         .log-entry {
             color: var(--text-muted);
-            line-height: 1.4;
-            word-break: break-all;
+            line-height: 1.3;
         }
-
         .log-entry.system { color: #818cf8; }
-        .log-entry.ai { color: #34d399; font-weight: 600; }
+        .log-entry.stt { color: #a5b4fc; }
+        .log-entry.ai { color: #34d399; }
         .log-entry.interrupted { color: #f43f5e; font-weight: bold; }
         .log-entry.error { color: #ef4444; }
 
         footer {
             text-align: center;
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
-            margin-top: 1rem;
+            margin-top: 0.5rem;
         }
     </style>
 </head>
@@ -317,7 +406,7 @@
     <div class="app-container">
         <header>
             <h1>Youngchae's <span class="gradient-text">Gemini Live Voice Agent</span></h1>
-            <p class="subtitle">Mac 마이크 & 스피커로 상호작용하는 대화형 멀티모달 오디오 세션</p>
+            <p class="subtitle">실시간 마이크 입력(STT) 및 AI 음성 응답(TTS) 자막 라이브 표시</p>
         </header>
 
         <!-- API Key & Voice Config Card -->
@@ -325,7 +414,7 @@
             <div class="config-grid">
                 <div class="form-group full-width">
                     <label for="apiKey">Google AI Studio API Key</label>
-                    <input type="password" id="apiKey" placeholder="AIzaSy... (API 키를 입력하세요. 브라우저 localStorage에 안전하게 보관됩니다)" autocomplete="off">
+                    <input type="password" id="apiKey" placeholder="AIzaSy... (API 키 입력 - 브라우저 localStorage에 안전 보관)" autocomplete="off">
                 </div>
 
                 <div class="form-group">
@@ -348,13 +437,13 @@
                 </div>
 
                 <div class="form-group full-width">
-                    <label for="systemInstruction">System Instruction (페르소나 설정)</label>
-                    <textarea id="systemInstruction" placeholder="예: 당신은 영채의 다정한 AI 조수입니다. 친근하고 자상한 말투로 짧게 대답해주세요.">당신은 영채의 똑똑하고 친절한 AI 음성 조수입니다. 사용자가 말하면 바로 경청하고 한국어로 친근하게 응답해주세요.</textarea>
+                    <label for="systemInstruction">System Instruction (고양이 인간 페르소나 설정)</label>
+                    <textarea id="systemInstruction" placeholder="페르소나 지침을 입력하세요.">당신은 고양이 귀와 꼬리가 달린 고양이 인간 '영채 캣'입니다. 다소 시니컬하고 쿨하지만 은근히 츤데레 같은 성격을 지니고 있습니다. 약간 무심한 척하면서도 사용자의 질문에는 똑똑하고 재치있게 대답합니다. [매우 중요 규칙]: 모든 문장의 끝에는 항상 '냥', '냐옹', '냥~', '냐아~' 같은 고양이 어미 및 미사어구를 자연스럽게 붙여서 한국어로 대답해야 합니다. (예시: "무슨 일 있냥?", "흥, 별거 아니다냥. 냐옹.")</textarea>
                 </div>
             </div>
         </div>
 
-        <!-- Live Control & Audio State -->
+        <!-- Live Control & Audio VU Meters -->
         <div class="card">
             <div class="live-status-bar">
                 <div class="status-badge">
@@ -367,43 +456,79 @@
                 </button>
             </div>
 
-            <!-- Voice Waveform Animation -->
-            <div class="visualizer-container" id="visualizer">
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
-                <div class="bar"></div>
+            <!-- Real-time Volume Meters -->
+            <div class="meters-container">
+                <div class="meter-box">
+                    <div class="meter-header">
+                        <span>🎙️ 마이크 수음 레벨 (내 목소리)</span>
+                        <span id="micVolText">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill" id="micVolBar"></div>
+                    </div>
+                </div>
+
+                <div class="meter-box">
+                    <div class="meter-header">
+                        <span>🔊 AI 음성 출력 레벨 (Gemini TTS)</span>
+                        <span id="aiVolText">0%</span>
+                    </div>
+                    <div class="progress-bar-bg">
+                        <div class="progress-bar-fill ai" id="aiVolBar"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Session Logs / Transcript Card -->
+        <!-- Live Speech Chat (STT & TTS Visual Display) -->
         <div class="card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                <label>Realtime Session Logs & Transcript</label>
-                <button onclick="clearLogs()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.8rem;">로그 지우기</button>
+                <label style="font-size: 0.9rem;">💬 실시간 대화 자막 (STT / TTS)</label>
+                <span id="sttStatusBadge" style="font-size: 0.75rem; color: var(--text-muted);">실시간 인식 준비됨</span>
+            </div>
+            <div class="speech-display-container" id="speechContainer">
+                <div class="chat-bubble ai">
+                    <div class="speaker-tag">🐱 영채 캣 (Cat-Human Agent)</div>
+                    <div class="message-text">흥, 또 무슨 일로 나를 불렀냐옹? 세션을 시작하면 네 말을 들어보겠다냥. 냐옹~</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Debug Logs Card -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                <label>시스템 이벤트 로그</label>
+                <button onclick="clearLogs()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem;">로그 지우기</button>
             </div>
             <div class="log-box" id="logBox">
-                <div class="log-entry system">[SYSTEM] Gemini Live Voice Agent가 준비되었습니다. API 키 입력 후 "Live 세션 시작" 버튼을 누르세요.</div>
+                <div class="log-entry system">[SYSTEM] Gemini Live Voice Agent 준비 완료.</div>
             </div>
         </div>
 
         <footer>
-            &copy; 2026 Youngchae Live Agent | Built with Gemini Live API (WebSocket & AudioWorklet/PCM)
+            &copy; 2026 Youngchae Live Agent | Built with Gemini Live API & Web Speech Recognition
         </footer>
     </div>
 
-    <!-- Live WebSocket & Web Audio API Script -->
+    <!-- Live Script -->
     <script>
-        // State management
+        // Global state variables
         let isConnected = false;
         let ws = null;
         let micAudioCtx = null;
         let scriptProcessor = null;
         let mediaStream = null;
+        let micAnalyser = null;
+
         let outputAudioCtx = null;
+        let outputAnalyser = null;
         let nextStartTime = 0;
         let activeSources = [];
+
+        // Web Speech API for Realtime STT
+        let speechRecognition = null;
+        let currentUserBubbleTextEl = null;
+        let currentAiBubbleTextEl = null;
 
         // Load saved API key on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -415,6 +540,8 @@
             document.getElementById('apiKey').addEventListener('input', (e) => {
                 localStorage.setItem('youngchae_gemini_api_key', e.target.value.trim());
             });
+
+            initSpeechRecognition();
         });
 
         function log(message, type = 'system') {
@@ -434,18 +561,147 @@
         function setStatus(status, text) {
             const dot = document.getElementById('statusDot');
             const statusText = document.getElementById('statusText');
-            const visualizer = document.getElementById('visualizer');
-
             dot.className = 'status-dot ' + status;
             statusText.textContent = text;
+        }
 
-            if (status === 'live') {
-                visualizer.classList.add('active');
-            } else {
-                visualizer.classList.remove('active');
+        /* ----------------------------------------------------
+           Web Speech API (STT: Speech To Text) Setup
+        ---------------------------------------------------- */
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                log('⚠️ 이 브라우저는 Web Speech STT를 지원하지 않습니다. (Chrome 권장)', 'error');
+                document.getElementById('sttStatusBadge').textContent = 'STT 미지원 브라우저';
+                return;
+            }
+
+            speechRecognition = new SpeechRecognition();
+            speechRecognition.continuous = true;
+            speechRecognition.interimResults = true;
+            speechRecognition.lang = 'ko-KR';
+
+            speechRecognition.onstart = () => {
+                document.getElementById('sttStatusBadge').textContent = '🎙️ 음성 인식 중...';
+            };
+
+            speechRecognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                const displaySpeech = finalTranscript || interimTranscript;
+                if (displaySpeech.trim()) {
+                    updateUserSpeechBubble(displaySpeech);
+                }
+            };
+
+            speechRecognition.onerror = (event) => {
+                console.warn('SpeechRecognition Error:', event.error);
+            };
+
+            speechRecognition.onend = () => {
+                if (isConnected && speechRecognition) {
+                    try { speechRecognition.start(); } catch (e) {}
+                }
+            };
+        }
+
+        function startSTT() {
+            if (speechRecognition) {
+                try {
+                    speechRecognition.start();
+                } catch (e) {}
             }
         }
 
+        function stopSTT() {
+            if (speechRecognition) {
+                try {
+                    speechRecognition.stop();
+                } catch (e) {}
+            }
+            document.getElementById('sttStatusBadge').textContent = '음성 인식 대기';
+        }
+
+        /* ----------------------------------------------------
+           UI Chat Bubble Helpers (STT & TTS)
+        ---------------------------------------------------- */
+        function updateUserSpeechBubble(text) {
+            const container = document.getElementById('speechContainer');
+            if (!currentUserBubbleTextEl) {
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble user';
+
+                const tag = document.createElement('div');
+                tag.className = 'speaker-tag';
+                tag.innerHTML = '👤 나 (User Speech STT)';
+
+                currentUserBubbleTextEl = document.createElement('div');
+                currentUserBubbleTextEl.className = 'message-text';
+
+                bubble.appendChild(tag);
+                bubble.appendChild(currentUserBubbleTextEl);
+                container.appendChild(bubble);
+            }
+
+            currentUserBubbleTextEl.textContent = text;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function appendAiSpeechBubbleText(textPart) {
+            const container = document.getElementById('speechContainer');
+
+            // Reset current user bubble pointer so next speech creates new bubble
+            currentUserBubbleTextEl = null;
+
+            if (!currentAiBubbleTextEl) {
+                const bubble = document.createElement('div');
+                bubble.className = 'chat-bubble ai';
+
+                const tag = document.createElement('div');
+                tag.className = 'speaker-tag';
+                tag.innerHTML = '🐱 영채 캣 (Cat TTS 응답)';
+
+                currentAiBubbleTextEl = document.createElement('div');
+                currentAiBubbleTextEl.className = 'message-text';
+
+                bubble.appendChild(tag);
+                bubble.appendChild(currentAiBubbleTextEl);
+                container.appendChild(bubble);
+            }
+
+            currentAiBubbleTextEl.textContent += textPart;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showInterruptedBadge() {
+            const container = document.getElementById('speechContainer');
+            const badge = document.createElement('div');
+            badge.className = 'interrupted-badge';
+            badge.textContent = '⚡ 사용자가 말을 끊어 응답을 중간 정지했습니다. (Buffer Flush)';
+            container.appendChild(badge);
+            container.scrollTop = container.scrollHeight;
+
+            currentUserBubbleTextEl = null;
+            currentAiBubbleTextEl = null;
+        }
+
+        function finishTurnBubbles() {
+            currentUserBubbleTextEl = null;
+            currentAiBubbleTextEl = null;
+        }
+
+        /* ----------------------------------------------------
+           Session Lifecycle Management
+        ---------------------------------------------------- */
         async function toggleSession() {
             if (isConnected) {
                 stopSession();
@@ -468,7 +724,7 @@
             const btn = document.getElementById('toggleSessionBtn');
             btn.disabled = true;
             setStatus('connecting', 'Connecting WebSocket...');
-            log('WebSocket 연결을 시도하는 중...', 'system');
+            log('Gemini Live WebSocket 연결을 시도합니다...', 'system');
 
             const wsUrl = `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContent?key=${apiKey}`;
 
@@ -476,9 +732,8 @@
                 ws = new WebSocket(wsUrl);
 
                 ws.onopen = async () => {
-                    log('WebSocket 연결 완료! Setup 메시지를 전송합니다.', 'system');
-                    
-                    // 1. Send Setup Message
+                    log('WebSocket 연결 성공! Setup 세션을 전송합니다.', 'system');
+
                     const setupMsg = {
                         setup: {
                             model: model,
@@ -503,9 +758,9 @@
 
                     ws.send(JSON.stringify(setupMsg));
 
-                    // 2. Initialize Microphone & Audio output
                     initOutputAudioContext();
                     await startMicrophone();
+                    startSTT();
 
                     isConnected = true;
                     btn.disabled = false;
@@ -513,7 +768,7 @@
                     document.getElementById('btnIcon').textContent = '⏹️';
                     document.getElementById('btnText').textContent = '세션 종료';
                     setStatus('live', 'Live Session Active');
-                    log('🎙️ Live 세션이 활성화되었습니다! 마이크로 말해보세요.', 'system');
+                    log('🎙️ Live 세션이 시작되었습니다. 마이크로 자유롭게 말씀해보세요!', 'system');
                 };
 
                 ws.onmessage = (event) => {
@@ -522,7 +777,7 @@
 
                 ws.onerror = (error) => {
                     console.error('WebSocket Error:', error);
-                    log('WebSocket 오류가 발생했습니다.', 'error');
+                    log('WebSocket 연결 오류가 발생했습니다.', 'error');
                     stopSession();
                 };
 
@@ -533,7 +788,7 @@
 
             } catch (err) {
                 console.error(err);
-                log('세션 시작 중 오류 발생: ' + err.message, 'error');
+                log('세션 시작 오류: ' + err.message, 'error');
                 stopSession();
             }
         }
@@ -541,7 +796,8 @@
         function stopSession() {
             isConnected = false;
 
-            // Stop Microphone
+            stopSTT();
+
             if (scriptProcessor) {
                 scriptProcessor.disconnect();
                 scriptProcessor = null;
@@ -555,10 +811,8 @@
                 micAudioCtx = null;
             }
 
-            // Stop Output Audio & Queue
             stopAllAudio();
 
-            // Close WebSocket
             if (ws) {
                 ws.onopen = null;
                 ws.onmessage = null;
@@ -570,7 +824,11 @@
                 ws = null;
             }
 
-            // UI Reset
+            document.getElementById('micVolBar').style.width = '0%';
+            document.getElementById('micVolText').textContent = '0%';
+            document.getElementById('aiVolBar').style.width = '0%';
+            document.getElementById('aiVolText').textContent = '0%';
+
             const btn = document.getElementById('toggleSessionBtn');
             btn.disabled = false;
             btn.className = 'btn-primary';
@@ -578,10 +836,12 @@
             document.getElementById('btnText').textContent = 'Live 세션 시작';
             setStatus('', 'Disconnected');
             log('세션이 완전히 정지되었습니다.', 'system');
+
+            finishTurnBubbles();
         }
 
         /* ----------------------------------------------------
-           Microphone Audio Capture (PCM 16kHz Mono Int16)
+           Microphone Streaming & VU Level Meter
         ---------------------------------------------------- */
         async function startMicrophone() {
             mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -597,7 +857,12 @@
             const inputSampleRate = micAudioCtx.sampleRate;
             const source = micAudioCtx.createMediaStreamSource(mediaStream);
 
-            // 4096 buffer size (~85ms chunks)
+            // Analyser node for Mic VU Volume Meter
+            micAnalyser = micAudioCtx.createAnalyser();
+            micAnalyser.fftSize = 256;
+            source.connect(micAnalyser);
+            updateMicVolumeMeter();
+
             scriptProcessor = micAudioCtx.createScriptProcessor(4096, 1, 1);
 
             scriptProcessor.onaudioprocess = (e) => {
@@ -625,10 +890,27 @@
             scriptProcessor.connect(micAudioCtx.destination);
         }
 
+        function updateMicVolumeMeter() {
+            if (!isConnected || !micAnalyser) return;
+
+            const dataArray = new Uint8Array(micAnalyser.frequencyBinCount);
+            micAnalyser.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            let avg = sum / dataArray.length;
+            let percent = Math.min(100, Math.round((avg / 128) * 100));
+
+            document.getElementById('micVolBar').style.width = percent + '%';
+            document.getElementById('micVolText').textContent = percent + '%';
+
+            requestAnimationFrame(updateMicVolumeMeter);
+        }
+
         function resampleAndConvertToPCM16(inputData, inputSampleRate, outputSampleRate) {
             let samples = inputData;
-
-            // Simple Linear Resampling if input rate != 16000
             if (inputSampleRate !== outputSampleRate) {
                 const ratio = inputSampleRate / outputSampleRate;
                 const newLength = Math.floor(inputData.length / ratio);
@@ -660,16 +942,39 @@
         }
 
         /* ----------------------------------------------------
-           Gemini Server Response & Audio Playback (24kHz PCM)
+           AI Speaker Playback & VU Meter & Subtitle Renderer
         ---------------------------------------------------- */
         function initOutputAudioContext() {
             if (!outputAudioCtx || outputAudioCtx.state === 'closed') {
                 outputAudioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                outputAnalyser = outputAudioCtx.createAnalyser();
+                outputAnalyser.fftSize = 256;
+                outputAnalyser.connect(outputAudioCtx.destination);
+                updateAiVolumeMeter();
             }
             if (outputAudioCtx.state === 'suspended') {
                 outputAudioCtx.resume();
             }
             nextStartTime = outputAudioCtx.currentTime;
+        }
+
+        function updateAiVolumeMeter() {
+            if (!outputAudioCtx || !outputAnalyser) return;
+
+            const dataArray = new Uint8Array(outputAnalyser.frequencyBinCount);
+            outputAnalyser.getByteFrequencyData(dataArray);
+
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
+            }
+            let avg = sum / dataArray.length;
+            let percent = Math.min(100, Math.round((avg / 128) * 100));
+
+            document.getElementById('aiVolBar').style.width = percent + '%';
+            document.getElementById('aiVolText').textContent = percent + '%';
+
+            requestAnimationFrame(updateAiVolumeMeter);
         }
 
         function handleServerMessage(jsonText) {
@@ -684,9 +989,9 @@
             if (msg.serverContent) {
                 const { modelTurn, interrupted, turnComplete } = msg.serverContent;
 
-                // ⚡ Interruption Handling (Buffer Flush)
                 if (interrupted) {
-                    log('⚡ 사용자가 끼어들었습니다. 오디오 재생 큐를 비웁니다! (Buffer Flush)', 'interrupted');
+                    log('⚡ 사용자가 끼어들었습니다. 오디오 재생 큐를 비웁니다!', 'interrupted');
+                    showInterruptedBadge();
                     stopAllAudio();
                     return;
                 }
@@ -699,6 +1004,7 @@
                             playAudioChunk(float32Pcm, 24000);
                         }
                         if (part.text) {
+                            appendAiSpeechBubbleText(part.text);
                             log(`Gemini: ${part.text}`, 'ai');
                         }
                     }
@@ -706,6 +1012,7 @@
 
                 if (turnComplete) {
                     log('턴 완료 (Turn Complete)', 'system');
+                    finishTurnBubbles();
                 }
             }
         }
@@ -732,17 +1039,23 @@
 
             const source = outputAudioCtx.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(outputAudioCtx.destination);
+            source.connect(outputAnalyser);
 
             const currentTime = outputAudioCtx.currentTime;
             if (nextStartTime < currentTime) {
-                nextStartTime = currentTime + 0.03; // tiny buffer smoothing
+                nextStartTime = currentTime + 0.03;
             }
 
             source.start(nextStartTime);
             nextStartTime += audioBuffer.duration;
 
             activeSources.push(source);
+
+            // If text part wasn't sent, add audio visual subtitle indicator
+            if (!currentAiBubbleTextEl) {
+                appendAiSpeechBubbleText("🔊 [음성 답변 출력 중...]");
+            }
+
             source.onended = () => {
                 activeSources = activeSources.filter(s => s !== source);
             };
