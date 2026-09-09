@@ -1,0 +1,10 @@
+# Environment and Secret Files
+.env
+.env.local
+*.key
+*.pem
+config.json
+secret*
+
+# OS Files
+.DS_Store

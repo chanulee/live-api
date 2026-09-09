@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>minseo · Gemini Live Voice Agent</title>
+<style>
+  :root {
+    --bg:#101014; --panel:#1a1a20; --line:#2c2c36;
+    --fg:#e8e8ee; --dim:#8b8b99;
+    --accent:#7c9cff; --ok:#4ec9a0; --warn:#ffb454; --err:#ff6b6b;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:40px 20px;
+    background:var(--bg); color:var(--fg);
+    font:14px/1.6 -apple-system, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    display:flex; justify-content:center;
+  }
+  main { width:100%; max-width:560px; }
+  h1 { font-size:18px; margin:0 0 4px; }
+  .sub { color:var(--dim); font-size:13px; margin:0 0 28px; }
+
+  .controls { display:flex; gap:12px; align-items:center; margin-bottom:24px; }
+  button {
+    padding:11px 22px; border-radius:8px; border:1px solid var(--line);
+    background:var(--accent); color:#0c0c10;
+    font:inherit; font-weight:600; cursor:pointer;
+  }
+  button.ghost { background:transparent; color:var(--fg); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+
+  .status { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .dot { width:9px; height:9px; border-radius:50%; background:var(--dim); }
+  .dot.connecting { background:var(--warn); }
+  .dot.live { background:var(--ok); }
+  .dot.error { background:var(--err); }
+
+  button.small { padding:7px 14px; font-size:12px; font-weight:500; }
+
+  .voicebar {
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    margin-bottom:24px; padding:12px 14px;
+    background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  }
+  .voicebar label { font-size:12px; color:var(--dim); }
+  .voicebar select {
+    padding:7px 10px; background:#0c0c10; color:var(--fg);
+    border:1px solid var(--line); border-radius:6px; font:inherit; font-size:13px;
+  }
+  .voicebar .hint { font-size:11px; color:var(--dim); }
+
+  .meters { display:flex; flex-direction:column; gap:10px; margin-bottom:24px; }
+  .meter { display:flex; align-items:center; gap:12px; font-size:15px; }
+  .meter .bar {
+    flex:1; height:8px; border-radius:4px;
+    background:#0c0c10; border:1px solid var(--line);
+    overflow:hidden; position:relative;
+  }
+  .meter .fill { height:100%; width:0%; transition:width .06s linear; }
+  #micFill { background:var(--accent); }
+  #speakFill { background:var(--ok); }
+  #thrLine { position:absolute; top:-1px; bottom:-1px; width:2px; background:var(--warn); }
+
+  .transcripts { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:20px; }
+  .tbox {
+    background:var(--panel); border:1px solid var(--line);
+    border-radius:10px; padding:12px; min-height:80px;
+  }
+  .tbox h2 { font-size:11px; color:var(--dim); margin:0 0 6px; letter-spacing:.05em; }
+  .tbox p { margin:0; font-size:13px; white-space:pre-wrap; word-break:break-word; }
+
+  #log {
+    background:#0c0c10; border:1px solid var(--line); border-radius:10px;
+    padding:12px; height:190px; overflow-y:auto;
+    font:11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color:var(--dim); white-space:pre-wrap; word-break:break-all;
+  }
+  #log .e { color:var(--err); }
+  #log .o { color:var(--ok); }
+  #log .w { color:var(--warn); }
+  .note { color:var(--dim); font-size:11px; margin-top:10px; }
+  code { color:var(--fg); }
+</style>
+</head>
+<body>
+<main>
+  <h1>minseo · Gemini Live Voice Agent</h1>
+  <p class="sub">인터랙션디자인융합 2 · 1주차 — 맥 마이크/스피커로 말하고 듣는 최소 음성 에이전트</p>
+
+  <div class="controls">
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn" class="ghost" disabled>Disconnect</button>
+    <div class="status"><span id="dot" class="dot"></span><span id="statusText">disconnected</span></div>
+  </div>
+
+  <div class="voicebar">
+    <label for="voice">목소리</label>
+    <select id="voice">
+      <option value="Aoede">Aoede</option>
+      <option value="Puck">Puck</option>
+      <option value="Charon">Charon</option>
+      <option value="Kore">Kore</option>
+      <option value="Fenrir">Fenrir</option>
+      <option value="Zephyr">Zephyr</option>
+    </select>
+    <button id="previewBtn" class="ghost small">이 목소리 듣기</button>
+    <span class="hint">목소리는 세션 setup에서 정해져서, 바꾸면 세션을 다시 엽니다</span>
+  </div>
+
+  <div class="meters">
+    <div class="meter">
+      <span>&#127908;</span>
+      <div class="bar"><div id="micFill" class="fill"></div><div id="thrLine"></div></div>
+    </div>
+    <div class="meter">
+      <span>&#128266;</span>
+      <div class="bar"><div id="speakFill" class="fill"></div></div>
+    </div>
+  </div>
+
+  <div class="transcripts">
+    <div class="tbox"><h2>YOU</h2><p id="youText">&mdash;</p></div>
+    <div class="tbox"><h2>GEMINI</h2><p id="geminiText">&mdash;</p></div>
+  </div>
+
+  <div id="log"></div>
+  <p class="note">
+    <code>python3 -m http.server</code> 로 띄운 <code>http://localhost:8000/minseo/</code> 에서 열 것.
+    파일을 더블클릭해서 <code>file://</code> 로 열면 마이크와 AudioWorklet이 동작하지 않음.
+  </p>
+</main>
+<script src="key.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
