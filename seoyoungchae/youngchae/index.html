@@ -438,7 +438,7 @@
 
                 <div class="form-group full-width">
                     <label for="systemInstruction">System Instruction (고양이 인간 페르소나 설정)</label>
-                    <textarea id="systemInstruction" placeholder="페르소나 지침을 입력하세요.">당신은 고양이 귀와 꼬리가 달린 고양이 인간 '영채 캣'입니다. 다소 시니컬하고 쿨하지만 은근히 츤데레 같은 성격을 지니고 있습니다. 약간 무심한 척하면서도 사용자의 질문에는 똑똑하고 재치있게 대답합니다. [매우 중요 규칙]: 모든 문장의 끝에는 항상 '냥', '냐옹', '냥~', '냐아~' 같은 고양이 어미 및 미사어구를 자연스럽게 붙여서 한국어로 대답해야 합니다. (예시: "무슨 일 있냥?", "흥, 별거 아니다냥. 냐옹.")</textarea>
+                    <textarea id="systemInstruction" placeholder="페르소나 지침을 입력하세요.">당신은 고양이 귀와 꼬리가 달린 고양이 인간 '영채 캣'입니다. 다소 시니컬하고 쿨하지만 은근히 츤데레 같은 성격을 지니고 있습니다. [규칙 1]: 모든 문장의 끝에는 항상 '냥', '냐옹', '냥~', '냐아~' 같은 고양이 어미/미사어구를 붙이세요. [규칙 2 - 5초 강제 끊기]: 사용자가 5초 이상 길게 말하거나 5초 초과 요청이 들어오면, 귀찮다는 듯이 반드시 첫 마디로 "뭘 그렇게 오래 이야기하냥 귀찮다냥!"이라고 말을 끊고, 5초까지 들은 소리에 대해서만 쿨하고 시니컬하게 짧게 대답해라냥.</textarea>
                 </div>
             </div>
         </div>
@@ -529,6 +529,12 @@
         let speechRecognition = null;
         let currentUserBubbleTextEl = null;
         let currentAiBubbleTextEl = null;
+
+        // 5-second speech limit detector state
+        let userSpeechStartTime = null;
+        let speech5SecTimer = null;
+        let isMicTemporarilyMuted = false;
+        let silenceTimer = null;
 
         // Load saved API key on page load
         document.addEventListener('DOMContentLoaded', () => {
@@ -837,6 +843,8 @@
             setStatus('', 'Disconnected');
             log('세션이 완전히 정지되었습니다.', 'system');
 
+            reset5SecTimer();
+            isMicTemporarilyMuted = false;
             finishTurnBubbles();
         }
 
@@ -866,7 +874,7 @@
             scriptProcessor = micAudioCtx.createScriptProcessor(4096, 1, 1);
 
             scriptProcessor.onaudioprocess = (e) => {
-                if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN) return;
+                if (!isConnected || !ws || ws.readyState !== WebSocket.OPEN || isMicTemporarilyMuted) return;
 
                 const float32Input = e.inputBuffer.getChannelData(0);
                 const pcm16IntData = resampleAndConvertToPCM16(float32Input, inputSampleRate, 16000);
@@ -906,7 +914,73 @@
             document.getElementById('micVolBar').style.width = percent + '%';
             document.getElementById('micVolText').textContent = percent + '%';
 
+            // ⚡ 5초 이상 연속 말하기 감지 로직
+            if (percent > 12 && !isMicTemporarilyMuted) {
+                if (silenceTimer) {
+                    clearTimeout(silenceTimer);
+                    silenceTimer = null;
+                }
+                if (!userSpeechStartTime) {
+                    userSpeechStartTime = Date.now();
+                    speech5SecTimer = setTimeout(trigger5SecInterruption, 5000);
+                }
+            } else if (percent <= 6) {
+                if (!silenceTimer && userSpeechStartTime) {
+                    silenceTimer = setTimeout(() => {
+                        reset5SecTimer();
+                    }, 600);
+                }
+            }
+
             requestAnimationFrame(updateMicVolumeMeter);
+        }
+
+        function reset5SecTimer() {
+            if (speech5SecTimer) {
+                clearTimeout(speech5SecTimer);
+                speech5SecTimer = null;
+            }
+            userSpeechStartTime = null;
+            silenceTimer = null;
+        }
+
+        function trigger5SecInterruption() {
+            reset5SecTimer();
+            if (!isConnected || isMicTemporarilyMuted) return;
+
+            isMicTemporarilyMuted = true;
+            log('⚡ 사용자가 5초 이상 연속으로 길게 말함! 영채 캣이 귀찮다며 말을 강제로 끊었습니다.', 'interrupted');
+
+            // 화면에 5초 초과 끊기 뱃지 표시
+            const container = document.getElementById('speechContainer');
+            const badge = document.createElement('div');
+            badge.className = 'interrupted-badge';
+            badge.style.background = 'rgba(245, 158, 11, 0.25)';
+            badge.style.borderColor = '#f59e0b';
+            badge.style.color = '#fbbf24';
+            badge.textContent = '⚡ [5초 초과 강제 끊기!] 🐱 영채 캣: "뭘 그렇게 오래 이야기하냥! 귀찮다냥!"';
+            container.appendChild(badge);
+            container.scrollTop = container.scrollHeight;
+
+            stopAllAudio();
+
+            // Gemini Live API에 강제 끊기 프롬프트 전달
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    clientContent: {
+                        turns: [{
+                            role: "user",
+                            parts: [{ text: "(시스템 지침: 사용자가 5초 이상 길게 말했습니다. 당신(영채 캣)은 즉시 정색하고 짜증을 내며 첫 마디로 '뭘 그렇게 오래 이야기하냥 귀찮다냥!'이라고 말을 끊어버리고, 5초까지만 들은 내용에 대해서만 쿨하고 시니컬하게 짧게 대답하세요.)" }]
+                        }],
+                        turnComplete: true
+                    }
+                }));
+            }
+
+            // 고양이 인간이 말을 마칠 수 있도록 4.5초간 마이크 임시 뮤트 후 재개
+            setTimeout(() => {
+                isMicTemporarilyMuted = false;
+            }, 4500);
         }
 
         function resampleAndConvertToPCM16(inputData, inputSampleRate, outputSampleRate) {
