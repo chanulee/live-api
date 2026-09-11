@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>여운 · 조금 서툴러도 괜찮은 대화</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body data-state="idle">
+  <header><a href="/" class="brand">여운 <span>YEOWOON</span></a><span class="edition">YUNJUNG / VOICE EXPERIMENT 01</span></header>
+  <main>
+    <section class="intro" aria-labelledby="title">
+      <p class="eyebrow">조금 소심한 대화 상대, 여운</p>
+      <h1 id="title">저… 우리,<br>조금 이야기할까요?</h1>
+      <p class="description">처음엔 조금 낯을 가리지만, 당신의 이야기가 궁금해요.<br>서두르지 않아도 괜찮아요.</p>
+      <div class="orb-scene" aria-hidden="true"><div class="ring ring-one"></div><div class="ring ring-two"></div><div class="orb"></div></div>
+      <div class="status" role="status"><span class="dot"></span><span id="status">연결 전</span></div>
+      <p id="hint">시작 버튼을 누르면 마이크를 연결해요.</p>
+      <div class="key-field">
+        <label for="api-key">Gemini API 키 <span>선택 입력</span></label>
+        <input id="api-key" type="password" autocomplete="off" spellcheck="false" maxlength="512" placeholder="API 키를 입력하세요" aria-describedby="key-help">
+        <p id="key-help">비워두면 .env의 키를 사용해요. 입력한 키는 이번 대화에만 사용하며 저장하지 않아요.</p>
+      </div>
+      <fieldset id="input-mode"><legend>대화 입력 방식</legend><label><input type="radio" name="mode" value="voice" checked> 마이크</label><label><input type="radio" name="mode" value="chat"> 채팅만</label></fieldset>
+      <div class="controls"><button id="start" class="primary">대화 시작 <span aria-hidden="true">↗</span></button><button id="stop" disabled>대화 종료</button></div>
+      <p id="notice" role="alert" hidden></p>
+      <div class="meter-wrap"><span>마이크</span><meter id="level" min="0" max="1" value="0" aria-label="마이크 입력 크기"></meter><span id="mic-state">꺼짐</span></div>
+    </section>
+    <aside class="conversation" aria-labelledby="conversation-title">
+      <div class="panel-heading"><h2 id="conversation-title">함께 나눈 이야기</h2><span>LIVE</span></div>
+      <div id="transcript" role="log" aria-label="대화 자막" aria-live="polite"><p class="empty">아직은 고요해요.<br>“안녕, 여운” 하고 말을 걸어보세요.</p></div>
+      <form id="chat-form"><label for="chat-input">메시지</label><textarea id="chat-input" rows="2" maxlength="2000" placeholder="대화를 시작한 뒤 메시지를 입력하세요" disabled></textarea><button id="send" type="submit" disabled>보내기</button></form>
+      <p class="caption">대화 자막은 이 화면에만 표시해요.<br>새 대화를 시작하면 이전 자막은 지워집니다.</p>
+    </aside>
+  </main>
+  <footer><span>여운은 가상의 인격을 가진 AI 음성 에이전트입니다.</span><span>답변 중에도 편하게 말씀하세요.</span></footer>
+</body>
+</html>
