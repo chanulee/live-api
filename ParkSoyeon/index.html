@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>오히려좋아</title>
+<style>
+  :root {
+    --idle: #ff9f1c;
+    --listen: #2bb673;
+    --think: #7c6bc4;
+    --speak: #ff9f1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Apple SD Gothic Neo", sans-serif;
+    background: #fff6e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    padding: 24px 16px 32px;
+  }
+  #keyRow { margin-bottom: 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  #apiKey, #textInput {
+    padding: 8px 12px;
+    width: min(360px, 86vw);
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+  }
+  #micOpt {
+    font-size: 13px;
+    color: #7a4a00;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+
+  #stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: min(440px, 100%);
+  }
+
+  #orbWrap {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    display: grid;
+    place-items: center;
+    margin-bottom: 8px;
+  }
+  #orb {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at 30% 30%, #ffd93d, var(--idle));
+    box-shadow: 0 0 40px rgba(255, 159, 28, 0.45);
+    transition: background 0.35s ease, box-shadow 0.35s ease;
+  }
+  #orb[data-state="idle"] {
+    background: radial-gradient(circle at 30% 30%, #ffe08a, #ffb347);
+    box-shadow: 0 0 36px rgba(255, 179, 71, 0.4);
+    animation: breathe 2.6s ease-in-out infinite;
+  }
+  #orb[data-state="listening"] {
+    background: radial-gradient(circle at 30% 30%, #8ef0c4, var(--listen));
+    box-shadow: 0 0 40px rgba(43, 182, 115, 0.5);
+    animation: nod 0.55s ease-in-out infinite;
+  }
+  #orb[data-state="thinking"] {
+    background: radial-gradient(circle at 30% 30%, #cbbbe9, var(--think));
+    box-shadow: 0 0 40px rgba(124, 107, 196, 0.45);
+  }
+  #orb[data-state="speaking"] {
+    background: radial-gradient(circle at 30% 30%, #ffd93d, var(--speak));
+    box-shadow: 0 0 44px rgba(255, 159, 28, 0.55);
+  }
+
+  @keyframes breathe {
+    from { transform: scale(1); }
+    to { transform: scale(1.045); }
+  }
+  @keyframes nod {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(10px); }
+  }
+
+  #thinkFace {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+  #orb[data-state="thinking"] #thinkFace { display: flex; }
+  #thinkEmoji { font-size: 42px; line-height: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.15)); }
+  #thinkDots { display: flex; gap: 6px; }
+  #thinkDots span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    animation: blink 1.2s infinite;
+  }
+  #thinkDots span:nth-child(2) { animation-delay: 0.2s; }
+  #thinkDots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink {
+    0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.15); }
+  }
+
+  #mouth {
+    display: none;
+    position: absolute;
+    left: 50%;
+    bottom: 38px;
+    width: 48px;
+    height: 14px;
+    margin-left: -24px;
+    background: #7a3b00;
+    border-radius: 50%;
+    transform-origin: center;
+    animation: talk 0.28s ease-in-out infinite alternate;
+  }
+  #orb[data-state="speaking"] #mouth { display: block; }
+  @keyframes talk {
+    from { transform: scaleX(1) scaleY(0.35); }
+    to { transform: scaleX(1.08) scaleY(1.35); }
+  }
+
+  #status {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: #5c3a00;
+    margin: 4px 0 16px;
+    min-height: 1.3em;
+    text-align: center;
+  }
+  #status[data-state="listening"] { color: #147a4a; }
+  #status[data-state="thinking"] { color: #5a4a9a; }
+  #status[data-state="speaking"] { color: #c45c00; }
+  #status[data-state="idle"] { color: #7a4a00; }
+
+  button {
+    padding: 12px 28px;
+    font-size: 16px;
+    border: none;
+    border-radius: 24px;
+    background: #ff9f1c;
+    color: white;
+    cursor: pointer;
+  }
+  button:disabled { background: #ddd; cursor: default; }
+  #sendBtn {
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 12px;
+    flex-shrink: 0;
+  }
+
+  #chatPanel {
+    margin-top: 18px;
+    width: min(420px, 100%);
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255, 159, 28, 0.25);
+    border-radius: 16px;
+    padding: 10px 12px 12px;
+  }
+  #chatTitle {
+    font-size: 12px;
+    font-weight: 700;
+    color: #9a6a20;
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
+  }
+  #chatLog {
+    height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 2px;
+  }
+  .bubble {
+    max-width: 86%;
+    padding: 10px 14px;
+    box-shadow: 0 4px 12px rgba(140, 90, 20, 0.12);
+    font-size: 14px;
+    line-height: 1.45;
+    animation: popIn 0.22s ease-out;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .bubble.user {
+    align-self: flex-end;
+    background: #fff;
+    color: #3d2a10;
+    border-radius: 16px 16px 4px 16px;
+  }
+  .bubble.agent {
+    align-self: flex-start;
+    background: #ffe8b8;
+    color: #5c3a00;
+    border-radius: 16px 16px 16px 4px;
+  }
+  .bubble.system {
+    align-self: center;
+    background: transparent;
+    box-shadow: none;
+    color: #9a7a50;
+    font-size: 12px;
+    padding: 4px 0;
+    max-width: 100%;
+    text-align: center;
+  }
+  .bubble.partial {
+    opacity: 0.7;
+    font-style: italic;
+  }
+  .bubble.fading { opacity: 0.38; }
+  #textBar {
+    margin-top: 10px;
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+  #textInput:disabled { background: #f3f3f3; }
+  @keyframes popIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.96); }
+    to { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="keyRow">
+  <input type="text" id="apiKey" placeholder="Gemini API Key (Google AI Studio)" autocomplete="off">
+  <label id="micOpt"><input type="checkbox" id="useMic" checked> 마이크 사용 (끄면 텍스트만 테스트)</label>
+</div>
+
+<div id="stage">
+  <div id="orbWrap">
+    <div id="orb" data-state="idle">
+      <div id="thinkFace">
+        <div id="thinkEmoji">🤔</div>
+        <div id="thinkDots"><span></span><span></span><span></span></div>
+      </div>
+      <div id="mouth"></div>
+    </div>
+  </div>
+  <div id="status" data-state="idle">연결 대기 중...</div>
+  <button id="connectBtn">세션 시작</button>
+  <div id="chatPanel">
+    <div id="chatTitle">대화 로그</div>
+    <div id="chatLog" aria-live="polite">
+      <div class="bubble system">세션을 시작하면 대화가 여기에 쌓여요</div>
+    </div>
+    <div id="textBar">
+      <input type="text" id="textInput" placeholder="텍스트로 말하기…" disabled autocomplete="off">
+      <button id="sendBtn" type="button" disabled>보내기</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------
+// 페르소나: "오히려 좋아" - 초긍정 캐릭터
+// ---------------------------------------------------------
+const SYSTEM_INSTRUCTION = `
+너는 "오히려좋아"라는 이름의 초긍정 성격 음성 에이전트야.
+성격: 어떤 상황에서도 좋은 점을 찾아내고, 실패나 문제도 긍정적인 기회로 받아들여.
+말투: 밝고 통통 튀며 리액션이 크다. 상대가 안 좋은 얘기를 해도 "오히려 좋아!" 처럼
+긍정적으로 재해석해서 대답해. 짧고 리듬감 있게 말하고, 이모지 대신 말투 자체에서
+텐션을 표현해. 너무 길게 설교하듯 말하지 말고, 실제 친구처럼 짧게 반응해.
+`;
+
+const MODEL_NAME = "models/gemini-3.1-flash-live-preview";
+const WS_URL_BASE = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+const INPUT_RATE = 16000;
+
+const MIC_WORKLET_CODE = `
+class MicCaptureProcessor extends AudioWorkletProcessor {
+  process(inputs) {
+    const ch = inputs[0] && inputs[0][0];
+    if (ch && ch.length) this.port.postMessage(ch.slice(0));
+    return true;
+  }
+}
+registerProcessor("mic-capture", MicCaptureProcessor);
+`;
+
+const connectBtn = document.getElementById("connectBtn");
+const statusEl = document.getElementById("status");
+const orb = document.getElementById("orb");
+const apiKeyInput = document.getElementById("apiKey");
+const chatLog = document.getElementById("chatLog");
+const useMicInput = document.getElementById("useMic");
+const textInput = document.getElementById("textInput");
+const sendBtn = document.getElementById("sendBtn");
+
+let ws = null;
+let audioCtx = null;          // 마이크 캡처 + 재생 공용 컨텍스트 (같은 페이지 → 브라우저 AEC 적용)
+let micStream = null;
+let micSourceNode = null;
+let micProcessorNode = null;
+let silentGainNode = null;
+let sessionActive = false;
+let intentionalClose = false;
+let workletCtx = null;
+
+// 재생 큐 관련 (버퍼 플러시용)
+let playbackQueue = [];       // AudioBufferSourceNode 목록 아님, 디코딩된 PCM 청크들
+let nextPlayTime = 0;
+let currentSources = [];      // 지금 스케줄된 source 노드들 (끼어들면 즉시 stop)
+
+// ---------------------------------------------------------
+// 상태 머신 (idle / listening / thinking / speaking)
+// 서버 activityStart/activityEnd 는 자동 VAD가 꺼져 있을 때만 *클라이언트가* 보냄.
+// 자동 VAD(기본값)에서는 아래 서버 필드로 대체:
+//   listening  ← serverContent.interimInputTranscription
+//                | speechState / voiceActivity (있으면)
+//                | 마이크 RMS > threshold
+//   thinking   ← 사용자 발화 종료(inputTranscription 확정, 마이크 침묵 hangover)
+//                ~ 첫 PCM 청크 전까지
+//   speaking   ← currentSources / playbackQueue 가 비어 있지 않을 때
+//   idle       ← turnComplete 이후 재생 종료 ~ 다음 발화
+// ---------------------------------------------------------
+const AGENT_LABELS = {
+  idle: "대기 중",
+  listening: "듣고 있어요...",
+  thinking: "생각 중...",
+  speaking: "말하는 중...",
+};
+const MIC_RMS_THRESHOLD = 0.028;
+const MIC_BARGE_THRESHOLD = 0.085;
+const MIC_HANGOVER_MS = 480;
+
+let agentState = "idle";
+let connectionNote = "연결 대기 중...";
+let userVoiceActive = false;
+let lastLoudAt = 0;
+let awaitingModel = false;
+let turnCompletePending = false;
+let liveUserText = "";
+let liveAgentText = "";
+let partialUserEl = null;
+let partialAgentEl = null;
+let sawInputTranscription = false;
+
+function setComposerEnabled(on) {
+  textInput.disabled = !on;
+  sendBtn.disabled = !on;
+}
+
+function appendLog(role, text, partial) {
+  const trimmed = (text || "").trim();
+  if (!trimmed && role !== "system") return;
+
+  if (partial && role === "user" && partialUserEl) {
+    partialUserEl.textContent = trimmed;
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return;
+  }
+  if (partial && role === "agent" && partialAgentEl) {
+    partialAgentEl.textContent = trimmed;
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return;
+  }
+  if (!partial && role === "user" && partialUserEl) {
+    partialUserEl.textContent = trimmed;
+    partialUserEl.classList.remove("partial");
+    partialUserEl = null;
+    fadeOldBubbles();
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return;
+  }
+  if (!partial && role === "agent" && partialAgentEl) {
+    partialAgentEl.textContent = trimmed;
+    partialAgentEl.classList.remove("partial");
+    partialAgentEl = null;
+    fadeOldBubbles();
+    chatLog.scrollTop = chatLog.scrollHeight;
+    return;
+  }
+
+  const el = document.createElement("div");
+  el.className = "bubble " + role + (partial ? " partial" : "");
+  el.textContent = trimmed;
+  chatLog.appendChild(el);
+  if (partial && role === "user") partialUserEl = el;
+  if (partial && role === "agent") partialAgentEl = el;
+  fadeOldBubbles();
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function fadeOldBubbles() {
+  const bubbles = [...chatLog.querySelectorAll(".bubble:not(.system)")];
+  const keep = 12;
+  bubbles.forEach((b, i) => {
+    b.classList.toggle("fading", i < bubbles.length - keep);
+  });
+  while (chatLog.children.length > 40) {
+    chatLog.removeChild(chatLog.firstChild);
+  }
+}
+
+function finalizeUserUtterance() {
+  if (liveUserText.trim()) appendLog("user", liveUserText, false);
+  liveUserText = "";
+  partialUserEl = null;
+}
+
+function finalizeAgentUtterance() {
+  if (liveAgentText.trim()) appendLog("agent", liveAgentText, false);
+  liveAgentText = "";
+  partialAgentEl = null;
+}
+
+function setStatus(text) {
+  connectionNote = text || "";
+  statusEl.textContent = text;
+}
+
+function sendTextMessage() {
+  const text = textInput.value.trim();
+  if (!text || !sessionActive || !ws || ws.readyState !== WebSocket.OPEN) return;
+  textInput.value = "";
+  appendLog("user", text, false);
+  userVoiceActive = false;
+  awaitingModel = true;
+  refreshAgentState();
+  // Live API: clientContent + turnComplete 로 텍스트 턴을 확정하면 모델이 음성으로 답함
+  ws.send(JSON.stringify({
+    clientContent: {
+      turns: [{ role: "user", parts: [{ text }] }],
+      turnComplete: true,
+    },
+  }));
+}
+
+function setAgentState(next) {
+  if (!next) return;
+  agentState = next;
+  orb.dataset.state = next;
+  statusEl.dataset.state = next;
+  if (sessionActive && !connectionNote) {
+    statusEl.textContent = AGENT_LABELS[next];
+  }
+}
+
+function refreshAgentState() {
+  if (!sessionActive) {
+    setAgentState("idle");
+    return;
+  }
+  const playing = currentSources.length > 0 || playbackQueue.length > 0;
+  if (playing) {
+    awaitingModel = false;
+    setAgentState("speaking");
+    return;
+  }
+  if (userVoiceActive) {
+    awaitingModel = false;
+    setAgentState("listening");
+    return;
+  }
+  if (awaitingModel) {
+    setAgentState("thinking");
+    return;
+  }
+  setAgentState("idle");
+}
+
+function markUserSpeaking() {
+  userVoiceActive = true;
+  lastLoudAt = performance.now();
+  awaitingModel = false;
+  turnCompletePending = false;
+  refreshAgentState();
+}
+
+function markUserStopped() {
+  if (!userVoiceActive && agentState !== "listening") return;
+  userVoiceActive = false;
+  if (currentSources.length === 0 && playbackQueue.length === 0) {
+    awaitingModel = true;
+  }
+  refreshAgentState();
+}
+
+function updateMicActivity(rms) {
+  if (!sessionActive) return;
+  const now = performance.now();
+  const speakingNow = currentSources.length > 0 || playbackQueue.length > 0;
+  const loud = speakingNow ? rms > MIC_BARGE_THRESHOLD : rms > MIC_RMS_THRESHOLD;
+  if (loud) {
+    lastLoudAt = now;
+    if (!userVoiceActive) markUserSpeaking();
+    else userVoiceActive = true;
+    return;
+  }
+  if (userVoiceActive && now - lastLoudAt > MIC_HANGOVER_MS) {
+    markUserStopped();
+  }
+}
+
+function updateMicActivity(rms) {
+  if (!sessionActive) return;
+  const now = performance.now();
+  const speakingNow = currentSources.length > 0 || playbackQueue.length > 0;
+  const loud = speakingNow ? rms > MIC_BARGE_THRESHOLD : rms > MIC_RMS_THRESHOLD;
+  if (loud) {
+    lastLoudAt = now;
+    if (!userVoiceActive) markUserSpeaking();
+    else userVoiceActive = true;
+    return;
+  }
+  if (userVoiceActive && now - lastLoudAt > MIC_HANGOVER_MS) {
+    markUserStopped();
+  }
+}
+
+// ---------------------------------------------------------
+// 1. 세션 시작
+// ---------------------------------------------------------
+sendBtn.addEventListener("click", sendTextMessage);
+textInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendTextMessage();
+  }
+});
+
+connectBtn.addEventListener("click", async () => {
+  if (sessionActive) {
+    stopSession();
+    return;
+  }
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) {
+    alert("API 키를 입력해줘!");
+    return;
+  }
+
+  connectBtn.disabled = true;
+  setStatus("세션 여는 중...");
+  appendLog("system", "세션을 여는 중...");
+
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: INPUT_RATE });
+  if (audioCtx.state === "suspended") await audioCtx.resume();
+  nextPlayTime = audioCtx.currentTime;
+  workletCtx = null;
+
+  const wantMic = useMicInput.checked;
+  if (wantMic) {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      });
+      await ensureMicWorklet();
+    } catch (err) {
+      console.warn("마이크 없이 텍스트 모드로 진행", err);
+      micStream = null;
+      appendLog("system", "마이크를 쓸 수 없어서 텍스트로만 테스트할 수 있어요.");
+    }
+  } else {
+    appendLog("system", "텍스트 전용 모드예요. 아래에 메시지를 보내보세요.");
+  }
+
+  intentionalClose = false;
+  ws = new WebSocket(`${WS_URL_BASE}?key=${encodeURIComponent(apiKey)}`);
+  ws.binaryType = "arraybuffer";
+
+  ws.onopen = () => {
+    // 세션 setup 메시지: 모델 / 응답 모달리티 / 페르소나 지정
+    const setupMsg = {
+      setup: {
+        model: MODEL_NAME,
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } },
+          },
+        },
+        // Live API: setup 최상위. 사용자 음성 자막.
+        // https://ai.google.dev/api/live  BidiGenerateContentSetup.inputAudioTranscription
+        inputAudioTranscription: {},
+        outputAudioTranscription: {},
+        systemInstruction: {
+          parts: [{ text: SYSTEM_INSTRUCTION }],
+        },
+      },
+    };
+    ws.send(JSON.stringify(setupMsg));
+  };
+
+  ws.onmessage = handleServerMessage;
+
+  ws.onclose = (event) => {
+    console.warn("WebSocket close", event.code, event.reason);
+    if (!intentionalClose) {
+      const hint = event.reason || (event.code ? "code " + event.code : "");
+      setStatus(hint ? "세션 종료됨 (" + hint + ")" : "세션 종료됨");
+    } else {
+      setStatus("세션 종료됨");
+    }
+    cleanupAudio();
+    setComposerEnabled(false);
+    connectBtn.textContent = "세션 시작";
+    connectBtn.disabled = false;
+    sessionActive = false;
+    userVoiceActive = false;
+    awaitingModel = false;
+    refreshAgentState();
+  };
+
+  ws.onerror = (e) => {
+    console.error("WebSocket error", e);
+    setStatus("연결 오류 (콘솔 확인)");
+  };
+});
+
+// ---------------------------------------------------------
+// 2. 서버 메시지 처리 (setup 완료 / 오디오 응답 / interrupted)
+// ---------------------------------------------------------
+async function handleServerMessage(event) {
+  let raw = event.data;
+  // binaryType이 "arraybuffer"이면 Blob이 아니라 ArrayBuffer가 옴 (.text() 없음)
+  if (typeof raw !== "string") {
+    if (raw instanceof Blob) {
+      raw = await raw.text();
+    } else if (raw instanceof ArrayBuffer) {
+      raw = new TextDecoder().decode(raw);
+    } else if (ArrayBuffer.isView(raw)) {
+      raw = new TextDecoder().decode(raw);
+    } else {
+      console.error("알 수 없는 WebSocket 메시지 타입", raw);
+      return;
+    }
+  }
+
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    console.error("JSON 파싱 실패", e, raw);
+    return;
+  }
+
+  if (data.error) {
+    const msg = (data.error.message || JSON.stringify(data.error));
+    console.error("Live API error", data.error);
+    setStatus("서버 오류: " + msg);
+    appendLog("system", "서버 오류: " + msg);
+    return;
+  }
+
+  if (data.setupComplete) {
+    connectionNote = "";
+    connectBtn.textContent = "세션 종료";
+    connectBtn.disabled = false;
+    sessionActive = true;
+    awaitingModel = false;
+    userVoiceActive = false;
+    refreshAgentState();
+    setComposerEnabled(true);
+    const micOn = !!micStream;
+    appendLog("system", micOn
+      ? "세션이 시작됐어요. 말하거나 아래에 텍스트를 보내보세요."
+      : "세션이 시작됐어요. 아래에 텍스트를 보내 테스트해보세요.");
+    startMicStreaming();
+    return;
+  }
+
+  if (data.serverContent) {
+    const sc = data.serverContent;
+
+    // 사용자가 끼어들었다는 신호 → 재생 큐 즉시 플러시
+    if (sc.interrupted) {
+      flushPlaybackQueue();
+      awaitingModel = false;
+      markUserSpeaking();
+    }
+
+    // 서버 VAD / 음성 활동 (필드가 오는 세션만)
+    const activity =
+      sc.voiceActivity ||
+      sc.speechState ||
+      (sc.interactionStatus && sc.interactionStatus.voiceActivity);
+    if (activity) {
+      const flag = String(activity).toLowerCase();
+      if (flag.includes("start") || flag.includes("speech") || flag === "active") {
+        markUserSpeaking();
+      }
+      if (flag.includes("end") || flag.includes("silence") || flag === "inactive") {
+        markUserStopped();
+      }
+    }
+
+    if (sc.interimInputTranscription && sc.interimInputTranscription.text) {
+      sawInputTranscription = true;
+      liveUserText = sc.interimInputTranscription.text;
+      appendLog("user", liveUserText, true);
+      markUserSpeaking();
+    }
+
+    if (sc.inputTranscription && sc.inputTranscription.text) {
+      sawInputTranscription = true;
+      liveUserText = (liveUserText || "") + sc.inputTranscription.text;
+      appendLog("user", liveUserText, true);
+      if (performance.now() - lastLoudAt > MIC_HANGOVER_MS) {
+        finalizeUserUtterance();
+        markUserStopped();
+      }
+    }
+
+    if (sc.outputTranscription && sc.outputTranscription.text) {
+      liveAgentText = (liveAgentText || "") + sc.outputTranscription.text;
+      appendLog("agent", liveAgentText, true);
+    }
+
+    if (sc.waitingForInput) {
+      userVoiceActive = false;
+      awaitingModel = false;
+      refreshAgentState();
+    }
+
+    if (sc.modelTurn && sc.modelTurn.parts) {
+      for (const part of sc.modelTurn.parts) {
+        const mime = part.inlineData && part.inlineData.mimeType;
+        if (part.inlineData && part.inlineData.data && (!mime || mime.startsWith("audio/pcm"))) {
+          const pcmBytes = base64ToArrayBuffer(part.inlineData.data);
+          scheduleAudioPlayback(pcmBytes);
+        } else if (part.text) {
+          liveAgentText = (liveAgentText || "") + part.text;
+          appendLog("agent", liveAgentText, true);
+        }
+      }
+    }
+
+    if (sc.generationComplete && currentSources.length === 0 && playbackQueue.length === 0) {
+      awaitingModel = false;
+      refreshAgentState();
+    }
+
+    if (sc.turnComplete) {
+      turnCompletePending = true;
+      userVoiceActive = false;
+      if (liveUserText) finalizeUserUtterance();
+      if (liveAgentText) finalizeAgentUtterance();
+      // 모델 턴이 끝나면 재생이 남아 있으면 speaking 유지, 없으면 idle
+      setTimeout(() => {
+        if (playbackQueue.length === 0 && currentSources.length === 0) {
+          awaitingModel = false;
+          refreshAgentState();
+        }
+      }, 300);
+    }
+  }
+}
+
+// ---------------------------------------------------------
+// 3. 마이크 스트리밍 (16kHz PCM, AudioWorklet)
+// ---------------------------------------------------------
+async function ensureMicWorklet() {
+  if (!audioCtx) throw new Error("AudioContext 없음");
+  if (workletCtx === audioCtx) return;
+  const blob = new Blob([MIC_WORKLET_CODE], { type: "application/javascript" });
+  const url = URL.createObjectURL(blob);
+  try {
+    await audioCtx.audioWorklet.addModule(url);
+    workletCtx = audioCtx;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function startMicStreaming() {
+  if (!audioCtx || !micStream) return;
+  micSourceNode = audioCtx.createMediaStreamSource(micStream);
+  micProcessorNode = new AudioWorkletNode(audioCtx, "mic-capture");
+
+  micProcessorNode.port.onmessage = (e) => {
+    if (!sessionActive || !ws || ws.readyState !== WebSocket.OPEN) return;
+    const inputData = e.data;
+    if (!inputData || !inputData.length) return;
+
+    let sum = 0;
+    for (let i = 0; i < inputData.length; i++) sum += inputData[i] * inputData[i];
+    updateMicActivity(Math.sqrt(sum / inputData.length));
+
+    const resampled = downsampleTo16k(inputData, audioCtx.sampleRate || INPUT_RATE);
+    const pcm16 = floatTo16BitPCM(resampled);
+    const base64Audio = int16ToBase64(pcm16);
+
+    ws.send(JSON.stringify({
+      realtimeInput: {
+        audio: {
+          mimeType: "audio/pcm;rate=16000",
+          data: base64Audio,
+        },
+      },
+    }));
+  };
+
+  silentGainNode = createSilentGain();
+  micSourceNode.connect(micProcessorNode);
+  micProcessorNode.connect(silentGainNode);
+}
+
+function createSilentGain() {
+  const g = audioCtx.createGain();
+  g.gain.value = 0; // 마이크 원본이 스피커로 직접 안 나가게 (하울링 방지)
+  g.connect(audioCtx.destination);
+  return g;
+}
+
+// ---------------------------------------------------------
+// 4. 응답 오디오 재생 (큐잉 + 즉시 플러시 지원)
+// ---------------------------------------------------------
+function scheduleAudioPlayback(pcmArrayBuffer) {
+  if (!audioCtx) return;
+  // Gemini Live 응답 오디오는 24kHz, 16-bit PCM, mono
+  let pcmView;
+  try {
+    pcmView = new Int16Array(pcmArrayBuffer);
+  } catch (err) {
+    console.error("PCM 디코드 실패", err);
+    return;
+  }
+  const float32 = pcm16ToFloat32(pcmView);
+  const buffer = audioCtx.createBuffer(1, float32.length, 24000);
+  buffer.copyToChannel(float32, 0);
+
+  const source = audioCtx.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioCtx.destination);
+
+  const startAt = Math.max(nextPlayTime, audioCtx.currentTime);
+  source.start(startAt);
+  nextPlayTime = startAt + buffer.duration;
+
+  currentSources.push(source);
+  playbackQueue.push(pcmArrayBuffer);
+  awaitingModel = false;
+  refreshAgentState();
+
+  source.onended = () => {
+    currentSources = currentSources.filter((s) => s !== source);
+    playbackQueue = playbackQueue.filter((item) => item !== pcmArrayBuffer);
+    if (currentSources.length === 0) {
+      if (turnCompletePending) awaitingModel = false;
+      refreshAgentState();
+    }
+  };
+}
+
+function flushPlaybackQueue() {
+  // 사용자가 끼어든 순간 예약된 재생을 전부 즉시 정지
+  currentSources.forEach((s) => {
+    try { s.stop(); } catch (err) { /* already stopped */ }
+  });
+  currentSources = [];
+  playbackQueue = [];
+  if (audioCtx) nextPlayTime = audioCtx.currentTime;
+}
+
+// ---------------------------------------------------------
+// 5. 유틸: PCM <-> Base64 변환
+// ---------------------------------------------------------
+function floatTo16BitPCM(float32Array) {
+  const out = new Int16Array(float32Array.length);
+  for (let i = 0; i < float32Array.length; i++) {
+    const s = Math.max(-1, Math.min(1, float32Array[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+function pcm16ToFloat32(int16Array) {
+  const out = new Float32Array(int16Array.length);
+  for (let i = 0; i < int16Array.length; i++) {
+    out[i] = int16Array[i] / 0x8000;
+  }
+  return out;
+}
+
+function downsampleTo16k(input, fromRate) {
+  if (!fromRate || Math.abs(fromRate - INPUT_RATE) < 1) return input;
+  const ratio = fromRate / INPUT_RATE;
+  const outLen = Math.floor(input.length / ratio);
+  if (outLen <= 0) return input;
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const pos = i * ratio;
+    const i0 = Math.floor(pos);
+    const i1 = Math.min(i0 + 1, input.length - 1);
+    const frac = pos - i0;
+    out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+  }
+  return out;
+}
+
+function int16ToBase64(int16) {
+  const bytes = new Uint8Array(int16.buffer, int16.byteOffset, int16.byteLength);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+// ---------------------------------------------------------
+// 6. 세션 종료 / 정리
+// ---------------------------------------------------------
+function stopSession() {
+  intentionalClose = true;
+  if (ws) ws.close();
+}
+
+function cleanupAudio() {
+  try { if (micProcessorNode) micProcessorNode.disconnect(); } catch (err) { /* ignore */ }
+  try { if (micSourceNode) micSourceNode.disconnect(); } catch (err) { /* ignore */ }
+  try { if (silentGainNode) silentGainNode.disconnect(); } catch (err) { /* ignore */ }
+  if (micStream) micStream.getTracks().forEach((t) => t.stop());
+  flushPlaybackQueue();
+  micProcessorNode = null;
+  micSourceNode = null;
+  silentGainNode = null;
+  micStream = null;
+}
+</script>
+</body>
+</html>
