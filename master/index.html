@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gemini Live · Reference</title>
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body data-state="idle">
+  <header>
+    <div>
+      <p class="eyebrow">INTERACTION DESIGN · REFERENCE BUILD</p>
+      <h1>Gemini Live Voice Agent</h1>
+      <p>학생 제출물의 장점을 합친 로컬 음성 에이전트 기준 구현</p>
+    </div>
+    <div class="status" role="status"><span class="dot"></span><span id="status">연결 전</span></div>
+  </header>
+
+  <main>
+    <section class="panel controls" aria-labelledby="settings-title">
+      <h2 id="settings-title">세션 설정</h2>
+      <form id="config">
+        <div class="grid two">
+          <label>목소리
+            <select id="voice"></select>
+          </label>
+          <p class="help">Gemini 3.8 Live<br>목소리는 실제 API 설정입니다. 이 모델은 thinking level을 받지 않습니다.</p>
+        </div>
+
+        <label>시스템 지시문
+          <textarea id="system-instruction" rows="5" maxlength="8000" placeholder="비워두면 persona.txt를 사용합니다."></textarea>
+        </label>
+
+        <details>
+          <summary>캐릭터 만들기 — 프롬프트 생성용</summary>
+          <p class="help">숫자를 설명 문장으로 바꿔 시스템 지시문에 덧붙입니다. API의 성격 수치가 아니며, 80이 40보다 정확히 두 배의 효과를 뜻하지 않습니다. 설정은 다음 연결부터 적용됩니다.</p>
+          <label class="inline"><input id="persona-enabled" type="checkbox"> 캐릭터 도우미 사용</label>
+          <div class="grid two details-body">
+            <label>다정함 (담백 0 ↔ 다정 100)<input id="warmth" type="range" min="0" max="100" value="50"><output id="warmth-value">50</output></label>
+            <label>유머 (진지 0 ↔ 유쾌 100)<input id="humor" type="range" min="0" max="100" value="20"><output id="humor-value">20</output></label>
+            <label>답변 목표 문장 수<input id="sentences" type="number" min="1" max="10" value="3" required></label>
+            <label>답변 언어<input id="reply-language" value="한국어" maxlength="80"></label>
+          </div>
+          <label>실제로 덧붙일 문장<textarea id="prompt-preview" rows="5" readonly></textarea></label>
+        </details>
+
+        <fieldset>
+          <legend>입력 방식</legend>
+          <label class="inline"><input type="radio" name="mode" value="voice" checked> 마이크</label>
+          <label class="inline"><input type="radio" name="mode" value="chat"> 채팅만</label>
+        </fieldset>
+
+        <details>
+          <summary>고급 설정 — 실제 API 값과 로컬 오디오</summary>
+          <div class="grid two details-body">
+            <label>Temperature (0–2, 선택)
+              <input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="모델 기본값">
+            </label>
+            <label>Max output tokens (선택)
+              <input id="max-tokens" type="number" min="1" max="65536" step="1" placeholder="모델 기본값">
+            </label>
+            <label>Top P (0.01–1, 선택)<input id="top-p" type="number" min="0.01" max="1" step="0.01" placeholder="모델 기본값"></label>
+            <label>Top K (실험: 1–100, 선택)<input id="top-k" type="number" min="1" max="100" step="1" placeholder="지원 확인 후 입력"></label>
+            <label>Presence penalty (실험: −2–2)<input id="presence-penalty" type="number" min="-2" max="2" step="0.1" placeholder="모델 기본값"></label>
+            <label>Frequency penalty (실험: −2–2)<input id="frequency-penalty" type="number" min="-2" max="2" step="0.1" placeholder="모델 기본값"></label>
+            <label>발화 시작 민감도
+              <select id="start-sensitivity">
+                <option value="START_SENSITIVITY_HIGH" selected>HIGH — 더 잘 감지</option>
+                <option value="START_SENSITIVITY_LOW">LOW — 오탐 감소</option>
+              </select>
+            </label>
+            <label>발화 종료 민감도
+              <select id="end-sensitivity">
+                <option value="END_SENSITIVITY_HIGH" selected>HIGH — 더 자주 종료</option>
+                <option value="END_SENSITIVITY_LOW">LOW — 덜 자주 종료</option>
+              </select>
+            </label>
+            <label>Prefix padding (0–500ms)
+              <input id="prefix-padding" type="number" min="0" max="500" step="10" value="20" required>
+            </label>
+            <label>Silence duration (100–2000ms)
+              <input id="silence-duration" type="number" min="100" max="2000" step="50" value="700" required>
+            </label>
+            <label>사용자 발화 중 처리
+              <select id="activity-handling">
+                <option value="START_OF_ACTIVITY_INTERRUPTS" selected>AI 응답 중단</option>
+                <option value="NO_INTERRUPTION">AI 응답 유지</option>
+              </select>
+            </label>
+            <label>로컬 끼어들기 RMS: <output id="local-threshold-value">0.080</output>
+              <input id="local-threshold" type="range" min="0" max="0.3" step="0.005" value="0.08">
+            </label>
+          </div>
+          <div class="checks">
+            <label class="inline"><input id="input-transcription" type="checkbox" checked> 사용자 음성 전사</label>
+            <label class="inline"><input id="output-transcription" type="checkbox" checked> 모델 음성 전사</label>
+          </div>
+          <p class="help">RMS는 API 값이 아니라 브라우저 재생을 빨리 끊는 로컬 보조값입니다. 0이면 끕니다.</p>
+          <p class="help">샘플링 값은 빈칸이면 전송하지 않습니다. Top K는 모델별 지원 여부가 다릅니다. 표시 범위는 수업용 입력 범위이며 공식 최대치가 아닙니다. 거절되면 값을 비우세요. 전사 전용 모델의 language hints·custom vocabulary·SMART와 Live에서 지원하지 않는 단어 timestamp·diarization은 이 화면에 넣지 않았습니다.</p>
+        </details>
+      </form>
+
+      <div class="actions">
+        <button id="start" class="primary" type="button">대화 시작</button>
+        <button id="stop" type="button" disabled>대화 종료</button>
+        <button id="resume" type="button" disabled>이전 대화 이어가기</button>
+        <button id="end-audio" type="button" disabled>내 말 끝났어요</button>
+      </div>
+      <p class="help">‘내 말 끝났어요’는 자동 VAD를 켠 상태에서 audioStreamEnd를 보냅니다. 마이크는 계속 켜져 있습니다. 이어가기는 이 탭에 남아 있는 마지막 복구 지점을 사용하며, 끊긴 순간의 말은 유실될 수 있습니다.</p>
+      <p id="hint">설정을 확인하고 대화를 시작하세요.</p>
+      <p id="notice" role="alert" hidden></p>
+      <div class="meter-row">
+        <label for="level">마이크 입력</label>
+        <meter id="level" min="0" max="1" value="0"></meter>
+        <span id="mic-state">꺼짐</span>
+      </div>
+      <dl class="meta">
+        <div><dt>모델</dt><dd id="model">연결 후 표시</dd></div>
+        <div><dt>사용량</dt><dd id="usage">토큰 집계 대기</dd></div>
+      </dl>
+    </section>
+
+    <section class="panel conversation" aria-labelledby="conversation-title">
+      <div class="panel-heading">
+        <h2 id="conversation-title">대화</h2>
+        <span>LIVE TRANSCRIPT</span>
+      </div>
+      <div id="transcript" role="log" aria-live="polite">
+        <p class="empty">대화를 시작한 뒤 말을 걸어보세요.</p>
+      </div>
+      <form id="chat-form">
+        <label for="chat-input">텍스트 입력</label>
+        <textarea id="chat-input" rows="3" maxlength="2000" placeholder="마이크 모드에서도 사용할 수 있습니다." disabled></textarea>
+        <button id="send" type="submit" disabled>보내기</button>
+      </form>
+    </section>
+  </main>
+
+  <footer>이 앱은 키를 브라우저에 전달하지 않고 대화를 디스크에 저장하지 않습니다. 오디오는 응답 생성을 위해 Google API로 전송됩니다.</footer>
+</body>
+</html>
