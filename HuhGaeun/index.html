@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gemini Live 음성 에이전트</title>
+  <style>
+    /* 요구사항 1: HTML/CSS/JS 전부 이 파일 하나. 외부 파일 없음. */
+    :root {
+      --bg: #1a1714;
+      --panel: #241f1a;
+      --ink: #f3ebe1;
+      --muted: #b7a894;
+      --line: #3d342c;
+      --listen: #7ec8a3;
+      --speak: #e8a87c;
+      --idle: #8a8074;
+      --err: #e07a7a;
+      --btn: #f3ebe1;
+      --btn-ink: #1a1714;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "IBM Plex Sans KR", "Apple SD Gothic Neo", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #3a2f26 0%, transparent 55%),
+        var(--bg);
+      color: var(--ink);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    main {
+      width: min(640px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 28px 24px 22px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.35rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+
+    .sub {
+      margin: 0 0 22px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input[type="password"],
+    input[type="text"],
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #1a1714;
+      color: var(--ink);
+      font-size: 0.95rem;
+      margin-bottom: 16px;
+      font-family: inherit;
+    }
+
+    textarea { min-height: 96px; resize: vertical; }
+
+    .hint {
+      margin: -10px 0 14px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 12px;
+    }
+
+    details.settings {
+      margin-bottom: 18px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 12px 4px;
+      background: #1a1714;
+    }
+
+    details.settings summary {
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 6px 4px 12px;
+    }
+
+    details.settings[open] summary { border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+
+    fieldset {
+      border: 0;
+      margin: 0 0 8px;
+      padding: 0;
+    }
+
+    legend {
+      font-size: 0.72rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 12px;
+      font-size: 0.88rem;
+      color: var(--ink);
+    }
+
+    .check input { width: auto; margin: 0; }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 11px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #startBtn { background: var(--btn); color: var(--btn-ink); }
+    #stopBtn { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* 요구사항 8: 연결됨 / 듣는 중 / 말하는 중 */
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: #1a1714;
+      border: 1px solid var(--line);
+      margin-bottom: 14px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--idle);
+      box-shadow: 0 0 0 6px rgba(138, 128, 116, 0.15);
+    }
+
+    .status.connected .dot { background: #8ab4f8; box-shadow: 0 0 0 6px rgba(138, 180, 248, 0.18); }
+    .status.listening .dot { background: var(--listen); box-shadow: 0 0 0 6px rgba(126, 200, 163, 0.2); }
+    .status.speaking .dot {
+      background: var(--speak);
+      box-shadow: 0 0 0 6px rgba(232, 168, 124, 0.22);
+      animation: pulse 1.1s ease-in-out infinite;
+    }
+    .status.error .dot { background: var(--err); box-shadow: 0 0 0 6px rgba(224, 122, 122, 0.2); }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.25); }
+    }
+
+    #statusText { font-weight: 600; }
+    #statusHint { color: var(--muted); font-size: 0.82rem; margin-left: auto; }
+
+    .transcript {
+      min-height: 72px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      color: var(--muted);
+      white-space: pre-wrap;
+      margin-bottom: 12px;
+    }
+
+    .error-box {
+      min-height: 1.4em;
+      color: var(--err);
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+    }
+
+    .setup-log {
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px dashed var(--line);
+      background: #140f0c;
+      color: #c8bfb2;
+      font-size: 0.72rem;
+      line-height: 1.45;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>실시간 음성 대화</h1>
+    <p class="sub">마이크와 스피커가 같은 페이지에서 동작합니다. Chrome의 에코 취소를 쓰고, 끼어들면 AI가 바로 입을 다뭅니다.</p>
+
+    <!-- 요구사항 2: 페이지에서 API 키 입력 -->
+    <label for="apiKeyInput">Gemini API 키</label>
+    <input id="apiKeyInput" type="password" autocomplete="off" placeholder="Google AI Studio API 키" />
+
+    <details class="settings" open>
+      <summary>세션 설정 (연결 시작 때 setup에 반영)</summary>
+      <div id="sessionFields">
+        <fieldset>
+          <legend>페르소나</legend>
+          <label for="systemPrompt">systemInstruction</label>
+          <textarea id="systemPrompt">You are a friendly real-time voice agent. Reply briefly in the user's language. Keep answers spoken and conversational.</textarea>
+          <p class="hint">세션 전체 성격. 3.1 Live는 언어 코드를 따로 못 넣고, 여기서 쓰는 언어를 제한합니다.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>generationConfig</legend>
+          <div class="grid2">
+            <div>
+              <label for="voiceName">voice (speechConfig)</label>
+              <select id="voiceName"></select>
+            </div>
+            <div>
+              <label for="thinkingLevel">thinkingLevel</label>
+              <select id="thinkingLevel">
+                <option value="minimal" selected>minimal (기본, 최저 지연)</option>
+                <option value="low">low</option>
+                <option value="medium">medium</option>
+                <option value="high">high</option>
+              </select>
+            </div>
+            <div>
+              <label for="temperature">temperature (비우면 생략)</label>
+              <input id="temperature" type="number" min="0" max="2" step="0.1" placeholder="예: 1.0" />
+            </div>
+            <div>
+              <label for="maxOutputTokens">maxOutputTokens (비우면 생략)</label>
+              <input id="maxOutputTokens" type="number" min="1" step="1" placeholder="예: 1024" />
+            </div>
+          </div>
+          <p class="hint">responseModalities는 AUDIO로 고정. 목소리는 TTS 프리빌트 보이스입니다.</p>
+        </fieldset>
+
+        <fieldset>
+          <legend>realtimeInputConfig — 서버 VAD / 끼어들기</legend>
+          <label class="check"><input id="allowInterrupt" type="checkbox" checked /> activityHandling: START_OF_ACTIVITY_INTERRUPTS (끄면 NO_INTERRUPTION)</label>
+          <div class="grid2">
+            <div>
+              <label for="startSensitivity">startOfSpeechSensitivity</label>
+              <select id="startSensitivity">
+                <option value="START_SENSITIVITY_HIGH" selected>HIGH (기본, 말하기 시작을 잘 잡음)</option>
+                <option value="START_SENSITIVITY_LOW">LOW (덜 민감, 오탐 감소)</option>
+              </select>
+            </div>
+            <div>
+              <label for="endSensitivity">endOfSpeechSensitivity</label>
+              <select id="endSensitivity">
+                <option value="END_SENSITIVITY_HIGH" selected>HIGH (기본, 말 끝을 빨리 잡음)</option>
+                <option value="END_SENSITIVITY_LOW">LOW (침묵을 더 오래 허용)</option>
+              </select>
+            </div>
+            <div>
+              <label for="prefixPaddingMs">prefixPaddingMs</label>
+              <input id="prefixPaddingMs" type="number" min="0" step="10" value="20" />
+              <p class="hint">발화가 확정되기 전 필요한 음성 길이(ms). 낮을수록 민감. 문서 예시 기본 20.</p>
+            </div>
+            <div>
+              <label for="silenceDurationMs">silenceDurationMs</label>
+              <input id="silenceDurationMs" type="number" min="0" step="10" value="100" />
+              <p class="hint">말 끝으로 인정할 침묵(ms). 클수록 끊김은 줄고 응답은 느려짐. 문서 예시 기본 100.</p>
+            </div>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>전사 · 로컬 barge-in</legend>
+          <label class="check"><input id="inputTranscript" type="checkbox" checked /> inputAudioTranscription (내 말 자막)</label>
+          <label class="check"><input id="outputTranscript" type="checkbox" checked /> outputAudioTranscription (AI 말 자막)</label>
+          <label for="localBargeIn">로컬 마이크 RMS 임계값 (API 필드 아님, 클라이언트 재생 끊기)</label>
+          <input id="localBargeIn" type="number" min="0" max="0.3" step="0.005" value="0.045" />
+          <p class="hint">0이면 로컬 감지 끄고 서버 interrupted만 사용. 3.1 Live는 affective dialog / proactive audio 미지원.</p>
+        </fieldset>
+      </div>
+    </details>
+
+    <div class="row">
+      <button id="startBtn" type="button">연결 시작</button>
+      <button id="stopBtn" type="button" disabled>연결 중지</button>
+    </div>
+
+    <!-- 요구사항 8: 현재 상태 표시 -->
+    <div id="statusBox" class="status">
+      <span class="dot" aria-hidden="true"></span>
+      <span id="statusText">대기 중</span>
+      <span id="statusHint">시작을 누르면 세션이 열립니다</span>
+    </div>
+
+    <div id="transcript" class="transcript">아직 대화가 없습니다.</div>
+    <pre id="setupLog" class="setup-log">연결 시작을 누르면 실제로 보낸 setup JSON이 여기에 표시됩니다.</pre>
+    <div id="errorBox" class="error-box"></div>
+  </main>
+
+  <script>
+    // ============================================================
+    // 요구사항 2: API 키 — 코드에 넣지 말 것. 페이지 입력창만 사용.
+    // 깃허브에 키가 커밋되지 않도록 아래는 항상 빈 문자열로 둘 것.
+    // ============================================================
+    const API_KEY = ""; // 업로드 전 삭제 — 여기에 실제 키를 넣지 마세요.
+
+    // 요구사항 3: 무료 티어 Live 모델
+    const MODEL_NAME = "gemini-3.1-flash-live-preview";
+
+    // 공식 Live API WebSocket (v1beta BidiGenerateContent)
+    // https://ai.google.dev/gemini-api/docs/live-api/get-started-websocket
+    const WS_PATH =
+      "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent";
+
+    const INPUT_RATE = 16000;  // 클라이언트가 API로 보내는 PCM
+    const OUTPUT_RATE = 24000; // API가 돌려주는 PCM
+    const PROCESSOR_BUFFER = 4096;
+    const AUDIO_CHUNK_MS = 40; // 권장 20–40ms 청크
+    const SETTINGS_KEY = "gemini_live_session_settings";
+
+    // Live API TTS 프리빌트 보이스 (speech generation 문서와 동일 세트)
+    const VOICES = [
+      ["Zephyr", "Bright"], ["Puck", "Upbeat"], ["Charon", "Informative"],
+      ["Kore", "Firm"], ["Fenrir", "Excitable"], ["Leda", "Youthful"],
+      ["Orus", "Firm"], ["Aoede", "Breezy"], ["Callirrhoe", "Easy-going"],
+      ["Autonoe", "Bright"], ["Enceladus", "Breathy"], ["Iapetus", "Clear"],
+      ["Umbriel", "Easy-going"], ["Algieba", "Smooth"], ["Despina", "Smooth"],
+      ["Erinome", "Clear"], ["Algenib", "Gravelly"], ["Rasalgethi", "Informative"],
+      ["Laomedeia", "Upbeat"], ["Achernar", "Soft"], ["Alnilam", "Firm"],
+      ["Schedar", "Even"], ["Gacrux", "Mature"], ["Pulcherrima", "Forward"],
+      ["Achird", "Friendly"], ["Zubenelgenubi", "Casual"], ["Vindemiatrix", "Gentle"],
+      ["Sadachbia", "Lively"], ["Sadaltager", "Knowledgeable"], ["Sulafat", "Warm"],
+    ];
+
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const apiKeyInput = document.getElementById("apiKeyInput");
+    const statusBox = document.getElementById("statusBox");
+    const statusText = document.getElementById("statusText");
+    const statusHint = document.getElementById("statusHint");
+    const transcriptEl = document.getElementById("transcript");
+    const errorBox = document.getElementById("errorBox");
+    const setupLog = document.getElementById("setupLog");
+    const sessionFields = document.getElementById("sessionFields");
+    const voiceSelect = document.getElementById("voiceName");
+
+    let ws = null;
+    let audioContext = null;
+    let mediaStream = null;
+    let processor = null;
+    let sourceNode = null;
+    let captureReady = false;
+    let sessionReady = false;
+    let stopped = true;
+    let inputRemainder = new Float32Array(0);
+    let userTranscript = "";
+    let modelTranscript = "";
+    let localBargeInRms = 0.045;
+    // "연결 시작" 클릭 순간의 UI 스냅샷. onopen에서 DOM을 다시 읽지 않는다.
+    let pendingSetup = null;
+
+    // 요구사항 6: 스피커 재생 큐
+    let playbackQueue = [];
+    let scheduledSources = [];
+    let nextPlayTime = 0;
+
+    VOICES.forEach(([name, tone]) => {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name + " — " + tone;
+      if (name === "Kore") opt.selected = true;
+      voiceSelect.appendChild(opt);
+    });
+
+    if (API_KEY && API_KEY !== "여기에_키") {
+      apiKeyInput.value = API_KEY;
+    } else {
+      apiKeyInput.value = localStorage.getItem("gemini_live_api_key") || "";
+    }
+    restoreSettings();
+
+    startBtn.addEventListener("click", startSession);
+    stopBtn.addEventListener("click", () => stopSession("사용자가 연결을 중지했습니다."));
+
+    function fieldIds() {
+      return [
+        "systemPrompt", "voiceName", "thinkingLevel", "temperature", "maxOutputTokens",
+        "allowInterrupt", "startSensitivity", "endSensitivity", "prefixPaddingMs",
+        "silenceDurationMs", "inputTranscript", "outputTranscript", "localBargeIn",
+      ];
+    }
+
+    function saveSettings() {
+      const data = {};
+      fieldIds().forEach((id) => {
+        const el = document.getElementById(id);
+        data[id] = el.type === "checkbox" ? el.checked : el.value;
+      });
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(data));
+    }
+
+    function restoreSettings() {
+      try {
+        const data = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+        fieldIds().forEach((id) => {
+          if (!(id in data)) return;
+          const el = document.getElementById(id);
+          if (el.type === "checkbox") el.checked = !!data[id];
+          else el.value = data[id];
+        });
+      } catch (_) {}
+    }
+
+    function setFieldsDisabled(disabled) {
+      sessionFields.querySelectorAll("input, select, textarea").forEach((el) => {
+        el.disabled = disabled;
+      });
+    }
+
+    function val(id) {
+      return document.getElementById(id).value;
+    }
+
+    function checked(id) {
+      return document.getElementById(id).checked;
+    }
+
+    function optionalNumber(id) {
+      const raw = String(val(id)).trim();
+      if (raw === "") return null;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    // 페이지 로드가 아니라 "연결 시작" 클릭 순간의 폼 값만 읽는다.
+    function readUiState() {
+      return {
+        systemInstruction: val("systemPrompt").trim(),
+        voiceName: val("voiceName"),
+        thinkingLevel: val("thinkingLevel"),
+        temperature: optionalNumber("temperature"),
+        maxOutputTokens: optionalNumber("maxOutputTokens"),
+        allowInterrupt: checked("allowInterrupt"),
+        startOfSpeechSensitivity: val("startSensitivity"),
+        endOfSpeechSensitivity: val("endSensitivity"),
+        prefixPaddingMs: optionalNumber("prefixPaddingMs") ?? 20,
+        silenceDurationMs: optionalNumber("silenceDurationMs") ?? 100,
+        inputTranscript: checked("inputTranscript"),
+        outputTranscript: checked("outputTranscript"),
+        localBargeIn: optionalNumber("localBargeIn"),
+      };
+    }
+
+    // WebSocket setup = LiveConnectConfig에 해당하는 객체.
+    // 구조: setup.systemInstruction, setup.generationConfig, setup.realtimeInputConfig
+    function buildSetupMessage(ui) {
+      const generationConfig = {
+        responseModalities: ["AUDIO"],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: ui.voiceName,
+            },
+          },
+        },
+        thinkingConfig: {
+          thinkingLevel: ui.thinkingLevel,
+        },
+      };
+      if (ui.temperature !== null) generationConfig.temperature = ui.temperature;
+      if (ui.maxOutputTokens !== null) generationConfig.maxOutputTokens = ui.maxOutputTokens;
+
+      const automaticActivityDetection = {
+        disabled: false,
+        startOfSpeechSensitivity: ui.startOfSpeechSensitivity,
+        endOfSpeechSensitivity: ui.endOfSpeechSensitivity,
+      };
+      if (ui.prefixPaddingMs !== null) {
+        automaticActivityDetection.prefixPaddingMs = ui.prefixPaddingMs;
+      }
+      if (ui.silenceDurationMs !== null) {
+        automaticActivityDetection.silenceDurationMs = ui.silenceDurationMs;
+      }
+
+      const setup = {
+        model: "models/" + MODEL_NAME,
+        generationConfig,
+        systemInstruction: {
+          parts: [{ text: ui.systemInstruction }],
+        },
+        realtimeInputConfig: {
+          automaticActivityDetection,
+          activityHandling: ui.allowInterrupt
+            ? "START_OF_ACTIVITY_INTERRUPTS"
+            : "NO_INTERRUPTION",
+        },
+      };
+      if (ui.inputTranscript) setup.inputAudioTranscription = {};
+      if (ui.outputTranscript) setup.outputAudioTranscription = {};
+      return { setup };
+    }
+
+    function currentApiKey() {
+      const fromInput = apiKeyInput.value.trim();
+      if (fromInput) return fromInput;
+      if (API_KEY && API_KEY !== "여기에_키") return API_KEY;
+      return "";
+    }
+
+    // 요구사항 8: 상태 UI
+    function setStatus(kind, label, hint) {
+      statusBox.className = "status " + kind;
+      statusText.textContent = label;
+      statusHint.textContent = hint || "";
+    }
+
+    // 요구사항: 에러는 콘솔과 화면에 표시
+    function showError(err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(message, err);
+      errorBox.textContent = message;
+    }
+
+    function clearError() {
+      errorBox.textContent = "";
+    }
+
+    function updateTranscript() {
+      const lines = [];
+      if (userTranscript) lines.push("나: " + userTranscript);
+      if (modelTranscript) lines.push("에이전트: " + modelTranscript);
+      transcriptEl.textContent = lines.join("\n") || "대화 중…";
+    }
+
+    // 요구사항 4 + README 작동방식 2: Live 세션을 한 번 열고 유지
+    async function startSession() {
+      clearError();
+      const key = currentApiKey();
+      if (!key) {
+        showError("API 키를 입력하세요. Google AI Studio에서 발급받을 수 있습니다.");
+        return;
+      }
+      localStorage.setItem("gemini_live_api_key", key);
+      saveSettings();
+
+      const ui = readUiState();
+      if (!ui.systemInstruction) {
+        showError("systemInstruction이 비어 있습니다.");
+        return;
+      }
+      pendingSetup = buildSetupMessage(ui);
+      localBargeInRms = ui.localBargeIn === null ? 0.045 : ui.localBargeIn;
+      console.log("[연결 시작] UI state", ui);
+      console.log("[연결 시작] pending setup (아직 미전송)", pendingSetup);
+      setupLog.textContent = "전송 대기 중 (소켓 open 후 아래 JSON을 보냄)\n" + JSON.stringify(pendingSetup, null, 2);
+      setFieldsDisabled(true);
+
+      stopped = false;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      sessionReady = false;
+      captureReady = false;
+      userTranscript = "";
+      modelTranscript = "";
+      updateTranscript();
+      setStatus("connected", "연결 중", "WebSocket 세션을 여는 중");
+
+      try {
+        // Chrome 자동재생 정책: 클릭 직후 AudioContext를 resume
+        audioContext = new AudioContext();
+        if (audioContext.state === "suspended") await audioContext.resume();
+
+        // 요구사항 5: getUserMedia + echoCancellation (같은 페이지 스피커와 함께 써야 동작)
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
+          video: false,
+        });
+
+        sourceNode = audioContext.createMediaStreamSource(mediaStream);
+        processor = audioContext.createScriptProcessor(PROCESSOR_BUFFER, 1, 1);
+        processor.onaudioprocess = onMicProcess;
+        // ScriptProcessor는 그래프에 연결돼야 콜백이 돈다. gain 0으로 자기 목소리가 스피커로 나가지 않게 함.
+        const silent = audioContext.createGain();
+        silent.gain.value = 0;
+        sourceNode.connect(processor);
+        processor.connect(silent);
+        silent.connect(audioContext.destination);
+        captureReady = true;
+
+        const url = WS_PATH + "?key=" + encodeURIComponent(key);
+        ws = new WebSocket(url);
+        ws.onopen = onWsOpen;
+        ws.onmessage = onWsMessage;
+        ws.onerror = () => showError("WebSocket 오류가 발생했습니다. 키와 네트워크를 확인하세요.");
+        ws.onclose = (event) => {
+          if (!stopped) {
+            showError("세션이 닫혔습니다. code=" + event.code + " " + (event.reason || ""));
+          }
+          stopSession();
+        };
+      } catch (err) {
+        showError(err);
+        stopSession();
+      }
+    }
+
+    function onWsOpen() {
+      if (!pendingSetup) {
+        showError("setup 스냅샷이 없습니다. 연결 시작을 다시 눌러 주세요.");
+        return;
+      }
+      const setupMessage = pendingSetup;
+      console.log("[WebSocket 전송] setup", setupMessage);
+      console.log("[WebSocket 전송] JSON", JSON.stringify(setupMessage, null, 2));
+      setupLog.textContent = "실제로 전송한 setup\n" + JSON.stringify(setupMessage, null, 2);
+      ws.send(JSON.stringify(setupMessage));
+      setStatus("connected", "연결됨", "세션 설정을 기다리는 중");
+    }
+
+    async function onWsMessage(event) {
+      try {
+        let raw = event.data;
+        if (raw instanceof Blob) raw = await raw.text();
+        const msg = JSON.parse(raw);
+
+        if (msg.error) {
+          showError(msg.error.message || JSON.stringify(msg.error));
+          return;
+        }
+
+        // setup 완료 전에는 오디오를 보내지 않음 (공식 스펙)
+        if (msg.setupComplete) {
+          sessionReady = true;
+          setStatus("listening", "듣는 중", "말하면 대답합니다");
+          return;
+        }
+
+        if (msg.goAway) {
+          showError("서버가 곧 연결을 종료합니다.");
+          return;
+        }
+
+        const serverContent = msg.serverContent;
+        if (!serverContent) return;
+
+        // 요구사항 7: 서버 interruption 신호 → 재생 큐 즉시 비움
+        if (serverContent.interrupted) {
+          flushPlayback();
+          setStatus("listening", "듣는 중", "끼어들기: AI가 입을 다물었습니다");
+        }
+
+        if (serverContent.inputTranscription && serverContent.inputTranscription.text) {
+          userTranscript += serverContent.inputTranscription.text;
+          updateTranscript();
+        }
+        if (serverContent.outputTranscription && serverContent.outputTranscription.text) {
+          modelTranscript += serverContent.outputTranscription.text;
+          updateTranscript();
+        }
+
+        // 요구사항 6: serverContent.modelTurn.parts[].inlineData 오디오를 큐에 넣음
+        const parts = serverContent.modelTurn && serverContent.modelTurn.parts;
+        if (parts) {
+          for (const part of parts) {
+            const inline = part.inlineData;
+            if (inline && inline.data) {
+              const pcm = base64ToInt16(inline.data);
+              enqueuePlayback(pcm);
+            }
+          }
+        }
+
+        if (serverContent.turnComplete) {
+          userTranscript = "";
+          modelTranscript = "";
+          if (scheduledSources.length === 0 && playbackQueue.length === 0) {
+            setStatus("listening", "듣는 중", "당신의 차례입니다");
+          }
+        }
+      } catch (err) {
+        showError(err);
+      }
+    }
+
+    // 요구사항 5: 마이크는 세션 동안 끄지 않고 16kHz PCM을 계속 보냄
+    function onMicProcess(event) {
+      if (stopped || !captureReady) return;
+
+      const input = event.inputBuffer.getChannelData(0);
+
+      // 요구사항 7: 로컬 마이크 에너지로도 barge-in (서버 신호보다 빠름)
+      if (localBargeInRms > 0 && isAgentSpeaking() && rms(input) > localBargeInRms) {
+        flushPlayback();
+        setStatus("listening", "듣는 중", "마이크 감지: 재생을 끊었습니다");
+      }
+
+      if (!sessionReady || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      const resampled = downsampleTo16k(input, audioContext.sampleRate);
+      sendPcmChunks(resampled);
+    }
+
+    function sendPcmChunks(float32) {
+      const merged = concatFloat32(inputRemainder, float32);
+      const samplesPerChunk = Math.floor(INPUT_RATE * (AUDIO_CHUNK_MS / 1000));
+      let offset = 0;
+      while (offset + samplesPerChunk <= merged.length) {
+        const slice = merged.subarray(offset, offset + samplesPerChunk);
+        const pcm16 = floatTo16BitPCM(slice);
+        const audioMessage = {
+          realtimeInput: {
+            audio: {
+              data: int16ToBase64(pcm16),
+              mimeType: "audio/pcm;rate=16000",
+            },
+          },
+        };
+        ws.send(JSON.stringify(audioMessage));
+        offset += samplesPerChunk;
+      }
+      inputRemainder = merged.subarray(offset);
+    }
+
+    function enqueuePlayback(int16) {
+      if (!int16 || int16.length === 0) return;
+      playbackQueue.push(int16);
+      pumpPlayback();
+    }
+
+    function pumpPlayback() {
+      if (!audioContext) return;
+      const now = audioContext.currentTime;
+      if (nextPlayTime < now) nextPlayTime = now;
+
+      while (playbackQueue.length > 0) {
+        const pcm = playbackQueue.shift();
+        const buffer = pcm16ToAudioBuffer(pcm, OUTPUT_RATE);
+        const source = audioContext.createBufferSource();
+        source.buffer = buffer;
+        source.connect(audioContext.destination);
+        source.start(nextPlayTime);
+        nextPlayTime += buffer.duration;
+        scheduledSources.push(source);
+        source.onended = () => {
+          scheduledSources = scheduledSources.filter((s) => s !== source);
+          if (scheduledSources.length === 0 && playbackQueue.length === 0 && !stopped && sessionReady) {
+            setStatus("listening", "듣는 중", "당신의 차례입니다");
+          }
+        };
+        setStatus("speaking", "말하는 중", "끼어들면 바로 멈춥니다");
+      }
+    }
+
+    function isAgentSpeaking() {
+      return playbackQueue.length > 0 || scheduledSources.length > 0;
+    }
+
+    // 요구사항 7 + README 작동방식 5: 재생 큐를 비우고 현재 재생도 중지
+    function flushPlayback() {
+      playbackQueue = [];
+      for (const source of scheduledSources) {
+        try {
+          source.onended = null;
+          source.stop();
+        } catch (_) {
+          /* already stopped */
+        }
+      }
+      scheduledSources = [];
+      if (audioContext) nextPlayTime = audioContext.currentTime;
+    }
+
+    function stopSession(reason) {
+      stopped = true;
+      sessionReady = false;
+      captureReady = false;
+      flushPlayback();
+
+      if (processor) {
+        try { processor.disconnect(); } catch (_) {}
+        processor.onaudioprocess = null;
+        processor = null;
+      }
+      if (sourceNode) {
+        try { sourceNode.disconnect(); } catch (_) {}
+        sourceNode = null;
+      }
+      if (mediaStream) {
+        mediaStream.getTracks().forEach((t) => t.stop());
+        mediaStream = null;
+      }
+      if (audioContext) {
+        audioContext.close().catch(() => {});
+        audioContext = null;
+      }
+      if (ws) {
+        ws.onclose = null;
+        try {
+          if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+            ws.close();
+          }
+        } catch (_) {}
+        ws = null;
+      }
+
+      inputRemainder = new Float32Array(0);
+      pendingSetup = null;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      setFieldsDisabled(false);
+      setStatus("", "대기 중", reason || "연결이 종료되었습니다");
+    }
+
+    function downsampleTo16k(input, fromRate) {
+      if (fromRate === INPUT_RATE) return input;
+      const ratio = fromRate / INPUT_RATE;
+      const outLen = Math.floor(input.length / ratio);
+      const out = new Float32Array(outLen);
+      for (let i = 0; i < outLen; i++) {
+        const pos = i * ratio;
+        const i0 = Math.floor(pos);
+        const i1 = Math.min(i0 + 1, input.length - 1);
+        const frac = pos - i0;
+        out[i] = input[i0] * (1 - frac) + input[i1] * frac;
+      }
+      return out;
+    }
+
+    function floatTo16BitPCM(float32) {
+      const out = new Int16Array(float32.length);
+      for (let i = 0; i < float32.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32[i]));
+        out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+      }
+      return out;
+    }
+
+    function pcm16ToAudioBuffer(int16, sampleRate) {
+      const buffer = audioContext.createBuffer(1, int16.length, sampleRate);
+      const channel = buffer.getChannelData(0);
+      for (let i = 0; i < int16.length; i++) {
+        channel[i] = int16[i] / (int16[i] < 0 ? 0x8000 : 0x7fff);
+      }
+      return buffer;
+    }
+
+    function concatFloat32(a, b) {
+      const out = new Float32Array(a.length + b.length);
+      out.set(a, 0);
+      out.set(b, a.length);
+      return out;
+    }
+
+    function rms(samples) {
+      let sum = 0;
+      for (let i = 0; i < samples.length; i++) sum += samples[i] * samples[i];
+      return Math.sqrt(sum / samples.length);
+    }
+
+    function int16ToBase64(int16) {
+      const bytes = new Uint8Array(int16.buffer, int16.byteOffset, int16.byteLength);
+      let binary = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+      }
+      return btoa(binary);
+    }
+
+    function base64ToInt16(b64) {
+      const binary = atob(b64);
+      const even = binary.length - (binary.length % 2);
+      const bytes = new Uint8Array(even);
+      for (let i = 0; i < even; i++) bytes[i] = binary.charCodeAt(i);
+      return new Int16Array(bytes.buffer);
+    }
+  </script>
+</body>
+</html>
