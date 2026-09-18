@@ -210,7 +210,7 @@ SESSION 파라미터를 세션 도중에 바꾸면 경고가 뜨고 `세션 새�
 
 | 파라미터 | 기본값 | 설명 |
 | --- | --- | --- |
-| 모델 | `gemini-3.1-flash-live-preview` | 수업 지정 모델 |
+| 모델 | `gemini-3.8-live` | 수업 지정 모델 (09-16 master 기준으로 3.1 → 3.8) |
 | 목소리 | `Fenrir` | Aoede / Puck / Charon / Kore / Zephyr |
 | 전사 | `on` | setup 이 거부되면 off 로 두고 다시 연결 |
 | 먼저 인사 | `on` | 세션이 열리면 콜드리딩 인사를 시킴 |

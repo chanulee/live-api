@@ -34,11 +34,15 @@ const GROUPS = [
 
 const PARAM_DEFS = [
   { group: "session", key: "model", label: "모델", scope: "session", type: "text",
-    def: "gemini-3.1-flash-live-preview" },
+    def: "gemini-3.8-live" },
 
   { group: "session", key: "voice", label: "목소리", scope: "session", type: "select",
     def: "Fenrir",
-    options: ["Aoede", "Puck", "Charon", "Kore", "Fenrir", "Zephyr"] },
+    // 공식 30종 (master/server.py 의 VOICES 와 같은 목록)
+    options: ("Zephyr Puck Charon Kore Fenrir Leda Orus Aoede Callirrhoe Autonoe " +
+      "Enceladus Iapetus Umbriel Algieba Despina Erinome Algenib Rasalgethi " +
+      "Laomedeia Achernar Alnilam Schedar Gacrux Pulcherrima Achird " +
+      "Zubenelgenubi Vindemiatrix Sadachbia Sadaltager Sulafat").split(" ") },
 
   { group: "session", key: "transcription", label: "전사", scope: "session", type: "bool", def: true },
   { group: "session", key: "greet", label: "먼저 인사", scope: "session", type: "bool", def: true },
@@ -70,6 +74,12 @@ const PARAM_DEFS = [
     def: 800, min: 100, max: 3000, step: 50,
     fmt: (v) => v + " ms · endpointing" },
 
+  // VAD 직접 지정과 별개로 항상 보낸다. NO_INTERRUPTION 이면 로컬 끼어들기도 끈다.
+  { group: "api", key: "activityHandling", label: "끼어들기 처리", scope: "session", type: "select",
+    def: "START_OF_ACTIVITY_INTERRUPTS",
+    options: ["START_OF_ACTIVITY_INTERRUPTS", "NO_INTERRUPTION"],
+    fmt: (v) => (v === "NO_INTERRUPTION" ? "안 끊김" : "끊김") },
+
   // ---- 여기부터는 문서에 없다. 서버 interrupted 신호보다 먼저 재생을 끊으려고
   // 브라우저 마이크 RMS 로 직접 만든 층이다. 서버 VAD 를 바꾸지 않는다.
   { group: "local", key: "interruptRms", label: "끼어들기 임계", scope: "live", type: "range",
@@ -97,7 +107,7 @@ const EASY_GROUPS = [
 
 const EASY = {
   model: { g: "agent", label: "두뇌", help: "어떤 Gemini 모델로 대화하는지", readonly: true },
-  voice: { g: "agent", label: "목소리", help: "여섯 개 중에 고릅니다. 바꾸면 세션을 다시 엽니다" },
+  voice: { g: "agent", label: "목소리", help: "서른 개 중에 고릅니다. 바꾸면 세션을 다시 엽니다" },
   transcription: { g: "agent", label: "자막 보여주기", help: "말한 내용을 글자로 같이 띄웁니다" },
   greet: { g: "agent", label: "먼저 말 걸기", help: "연결되면 에이전트가 먼저 인사합니다" },
   frame: { hide: true },
@@ -113,6 +123,9 @@ const EASY = {
   endSensitivity: { g: "turn", label: "말 끝을 얼마나 예민하게 볼까",
     help: "예민하면 잠깐 숨 쉬어도 말이 끝난 걸로 봅니다",
     bucket: (v) => (String(v).indexOf("HIGH") >= 0 ? "예민" : "둔감") },
+  activityHandling: { g: "turn", label: "말하는 도중 끼어들면 멈출까",
+    help: "안 끊김으로 두면 사용자가 말해도 끝까지 말합니다. 로컬 끼어들기도 같이 꺼집니다",
+    bucket: (v) => (v === "NO_INTERRUPTION" ? "끝까지 말함" : "멈춤") },
   silenceDurationMs: { g: "turn", label: "얼마나 조용하면 대답을 시작할까",
     help: "짧으면 말하는 도중에 끊고 들어오고, 길면 답답합니다",
     bucket: (v) => (v < 500 ? "성급함" : v < 1000 ? "보통" : "느긋") },
@@ -171,6 +184,10 @@ const paramNote = $("paramNote");
 const modeEasy = $("modeEasy");
 const modeDev = $("modeDev");
 const modeHint = $("modeHint");
+const model38 = $("model38");
+const model31 = $("model31");
+const MODEL_38 = "gemini-3.8-live";
+const MODEL_31 = "gemini-3.1-flash-live-preview";
 const sysLabel = $("sysLabel");
 const sysBadge = $("sysBadge");
 const sysInput = $("sysInput");
@@ -197,6 +214,9 @@ let micStream = null, micCtx = null, micNode = null, playCtx = null;
 let playing = new Set();     // 재생 예약된 노드 = 재생 큐
 let playHead = 0;
 let loudFrames = 0;
+// 응답 지연 측정: 에이전트가 조용할 때 마지막으로 말소리가 난 시각 → 그 턴의 첫 오디오 조각
+const VOICE_RMS = 0.02;
+let lastVoiceAt = 0, turnAudioStarted = false;
 let suppress = false;
 let suppressTimer = null;
 let youBuf = "", geminiBuf = "", speakLevel = 0, lastClock = "";
@@ -211,6 +231,10 @@ function loadParams() {
     for (const d of PARAM_DEFS) {
       if (saved[d.key] !== undefined) out[d.key] = saved[d.key];
     }
+    // 3.8 이전에 저장된 모델 이름은 새 기본값으로 올린다
+    // 단, 토글로 3.1 을 고른 경우(modelPicked)는 그대로 둔다
+    if (out.model === MODEL_31 && !saved.modelPicked) out.model = MODEL_38;
+    if (saved.modelPicked) out.modelPicked = true;
   } catch (e) { /* 저장값이 깨졌으면 기본값으로 간다 */ }
   return out;
 }
@@ -403,7 +427,9 @@ function onMicFrame(e) {
   micFill.style.width = Math.min(100, rms * METER_SCALE) + "%";
 
   // params 를 매 프레임 새로 읽는다. 그래서 live 파라미터는 세션 중에도 즉시 먹는다.
-  if (isSpeaking()) {
+  if (!isSpeaking() && rms > VOICE_RMS) lastVoiceAt = performance.now();
+
+  if (isSpeaking() && params.activityHandling !== "NO_INTERRUPTION") {
     if (rms > params.interruptRms) {
       loudFrames++;
       if (loudFrames >= params.interruptFrames && !suppress) {
@@ -441,14 +467,9 @@ function handleMessage(msg) {
       ? "딱 한 문장만 말해. '나는 이 목소리로 말해, 마음에 들어?' 라고만. 마지막 단어는 소리쳐."
       : (params.greet ? GREET_PROMPT : null);
     previewMode = false;
-    if (prompt) {
-      send({
-        clientContent: {
-          turns: [{ role: "user", parts: [{ text: prompt }] }],
-          turnComplete: true,
-        },
-      });
-    }
+    // 3.8 은 대화 중 텍스트를 realtimeInput.text 로 받는다 (master 와 같은 방식).
+    // clientContent 는 초기 히스토리용이라 여기서 쓰지 않는다.
+    if (prompt) send({ realtimeInput: { text: prompt } });
     return;
   }
 
@@ -482,10 +503,17 @@ function handleMessage(msg) {
       const d = p.inlineData;
       if (d && d.mimeType && d.mimeType.indexOf("audio/pcm") === 0) {
         if (suppress) continue;
+        if (!turnAudioStarted) {
+          turnAudioStarted = true;
+          const gap = performance.now() - lastVoiceAt;
+          if (lastVoiceAt && gap < 15000) log("응답 지연 " + (gap / 1000).toFixed(2) + " s (말 끝 → 첫 소리, 침묵 판정 포함)", "w");
+        }
         playChunk(b64decode(d.data));
       }
     }
   }
+
+  if (sc.turnComplete || sc.interrupted) turnAudioStarted = false;
 
   if (sc.turnComplete) {
     endSuppress();
@@ -569,6 +597,12 @@ async function connect() {
           },
         },
         systemInstruction: { parts: [{ text: sysPrompt }] },
+        // 전시처럼 오래 켜두면 문맥이 차므로 master 와 같은 값으로 오래된 대화부터 잘라낸다.
+        // 시스템 지시문은 잘리지 않는다.
+        contextWindowCompression: {
+          triggerTokens: 25000,
+          slidingWindow: { targetTokens: 8000 },
+        },
         // sessionResumption 을 넣지 않는다. 넣으면 서버가 재개 토큰을 발급하고
         // 그 토큰은 종료 후 2시간 유효해서, 다시 켤 때 이전 세션이 이어질 수 있다.
         // 우리는 매번 새 세션을 원하므로 opt-in 하지 않는다.
@@ -578,23 +612,24 @@ async function connect() {
       setup.setup.inputAudioTranscription = {};
       setup.setup.outputAudioTranscription = {};
     }
+    setup.setup.realtimeInputConfig = { activityHandling: params.activityHandling };
     // 서버 VAD. 안 보내면 서버가 자기 기본값을 쓴다(자동 감지는 기본 켜짐).
     if (params.vadEnabled) {
-      setup.setup.realtimeInputConfig = {
+      Object.assign(setup.setup.realtimeInputConfig, {
         automaticActivityDetection: {
           startOfSpeechSensitivity: params.startSensitivity,
           prefixPaddingMs: params.prefixPaddingMs,
           endOfSpeechSensitivity: params.endSensitivity,
           silenceDurationMs: params.silenceDurationMs,
         },
-      };
+      });
       log(
         "서버 VAD 직접 지정: " + params.startSensitivity.replace("START_SENSITIVITY_", "") +
         " / prefix " + params.prefixPaddingMs + "ms / silence " + params.silenceDurationMs + "ms",
         "w"
       );
     } else {
-      log("서버 VAD는 기본값 사용 (realtimeInputConfig 미전송)");
+      log("서버 VAD는 기본값 사용 (automaticActivityDetection 미전송)");
     }
     send(setup);
   };
@@ -682,6 +717,8 @@ function readout(d) {
 function renderParams() {
   modeEasy.className = "segbtn" + (easyMode ? " on" : "");
   modeDev.className = "segbtn" + (easyMode ? "" : " on");
+  model38.className = "segbtn" + (params.model === MODEL_38 ? " on" : "");
+  model31.className = "segbtn" + (params.model === MODEL_31 ? " on" : "");
   modeHint.textContent = easyMode
     ? "같은 값을 사람 말로 보여줍니다. 숫자도 같이 나옵니다"
     : "API 필드 이름 그대로 보여줍니다";
@@ -714,7 +751,7 @@ function buildEasy() {
       const e = EASY[d.key];
       if (!e || e.hide || e.g !== g[0]) continue;
 
-      const off = d.group === "api" && d.key !== "vadEnabled" && !params.vadEnabled;
+      const off = d.group === "api" && d.key !== "vadEnabled" && d.key !== "activityHandling" && !params.vadEnabled;
       const when = d.scope === "live"
         ? '<span class="ewhen live">지금 바로</span>'
         : '<span class="ewhen session">다시 연결</span>';
@@ -821,7 +858,7 @@ function renderGroup(group) {
       control = '<input type="text" data-k="' + d.key + '" value="' + params[d.key] + '">';
     }
     // VAD 를 직접 지정하지 않으면 나머지 API 행은 흐리게 둔다. 안 보내는 값이므로.
-    const off = d.group === "api" && d.key !== "vadEnabled" && !params.vadEnabled;
+    const off = d.group === "api" && d.key !== "vadEnabled" && d.key !== "activityHandling" && !params.vadEnabled;
     html +=
       '<div class="prow' + (off ? " off" : "") + '"><span class="pname">' + d.label + "</span>" +
       badge(d.scope) + control +
@@ -843,6 +880,7 @@ function onParamChange(e) {
   else if (d.numeric) v = parseInt(v, 10);
 
   params[k] = v;
+  if (k === "model") params.modelPicked = true;
   saveParams();
 
   if (d.scope === "session" && sessionActive) dirty = true;
@@ -869,6 +907,19 @@ function tick() {
 
 modeEasy.addEventListener("click", function () { easyMode = true; saveMode(); renderParams(); });
 modeDev.addEventListener("click", function () { easyMode = false; saveMode(); renderParams(); });
+
+// 모델 토글. 비교하기 쉽게 연결 중이면 바로 새 모델로 세션을 다시 연다.
+function pickModel(m) {
+  if (params.model === m) return;
+  params.model = m;
+  params.modelPicked = true;
+  saveParams();
+  log("모델 → " + m, "w");
+  renderParams();
+  if (sessionActive) refreshSession();
+}
+model38.addEventListener("click", function () { pickModel(MODEL_38); });
+model31.addEventListener("click", function () { pickModel(MODEL_31); });
 
 connectBtn.addEventListener("click", function () { previewMode = false; connect(); });
 disconnectBtn.addEventListener("click", disconnect);

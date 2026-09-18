@@ -209,10 +209,19 @@
   <h1>minseo · Gemini Live Voice Agent</h1>
   <p class="sub">인터랙션디자인융합 2 · 1주차 — 맥 마이크/스피커로 말하고 듣는 최소 음성 에이전트</p>
 
+  <div class="transcripts">
+    <div class="tbox"><h2>YOU</h2><p id="youText">&mdash;</p></div>
+    <div class="tbox"><h2>GEMINI</h2><p id="geminiText">&mdash;</p></div>
+  </div>
+
   <div class="modebar">
     <div class="seg">
       <button id="modeEasy" class="segbtn on">손쉬운 모드</button>
       <button id="modeDev" class="segbtn">개발자 모드</button>
+    </div>
+    <div class="seg" title="모델 바꾸기. 연결 중이면 세션을 새 모델로 다시 엽니다">
+      <button id="model38" class="segbtn">3.8 Live</button>
+      <button id="model31" class="segbtn">3.1 Flash</button>
     </div>
     <span id="modeHint" class="hint"></span>
   </div>
@@ -273,11 +282,6 @@
       <span id="dirtyNote"></span>
     </div>
   </section>
-
-  <div class="transcripts">
-    <div class="tbox"><h2>YOU</h2><p id="youText">&mdash;</p></div>
-    <div class="tbox"><h2>GEMINI</h2><p id="geminiText">&mdash;</p></div>
-  </div>
 
   <div id="log"></div>
   <p class="note">
